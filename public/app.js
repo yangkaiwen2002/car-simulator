@@ -4,11 +4,11 @@ import {loadVehicle} from './driving/joe.js';
 import {loadGltfVehicle} from './driving/gltf-vehicle.js';
 import {createCity,createGarage,makeEnvironment,STREETS} from './driving/city.js';
 import {createCircuit} from './driving/circuit.js';
-import {CIRCUITS,buildRoute,createLapTimer,formatLap} from './driving/circuit-data.js';
-import {createState,step,setDirection,clamp} from './driving/physics.js?v=0.6.2';
+import {CIRCUITS,buildRoute,createLapTimer,formatLap,timingView} from './driving/circuit-data.js';
+import {createState,step,setDirection,clamp} from './driving/physics.js?v=0.7.0';
 
 const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
-let renderer,garage,city,camera,vehicle,selected=CARS.find(c=>c.id==='M4'),specs,mode='garage',cabin=false,paused=false,loading=false,loadId=0;
+let renderer,garage,city,camera,vehicle,selected=CARS.find(c=>c.id==='RB19'),specs,mode='garage',cabin=false,paused=false,loading=false,loadId=0;
 let state=createState(),lastTime=0,accumulator=0,uiTime=0,orbit=-.8,zoom=1,lookX=0,lookY=0,seat=0,fov=70,cruise=false,quality='medium',assists=true;
 let destination='city',lapTimer=null,starting=false,inspectDamage=false;const worlds=new Map();
 const keys=new Set(),touch=new Set(),cache=new Map(),thumbnails=new Map();
@@ -59,7 +59,7 @@ $('#cars-next').onclick=()=>$('#car-list').scrollBy({left:$('#car-list').clientW
 $('#car-list').addEventListener('scroll',updateCollectionArrows,{passive:true});
 
 function renderPaint(){
- $('#paint-options').replaceChildren();for(const [i,color] of [selected.color,'#294d45','#902e2b','#d8c29c','#2c3034'].entries()){
+ $('#paint-options').replaceChildren();for(const [i,color] of (selected.id==='RB19'?[selected.color]:[selected.color,'#294d45','#902e2b','#d8c29c','#2c3034']).entries()){
   const b=document.createElement('button');b.className='paint'+(i===0?' selected':'');b.style.backgroundColor=color;b.setAttribute('aria-label',['原色','森林绿','酒红','香槟金','石墨黑'][i]);b.title=b.getAttribute('aria-label');b.onclick=()=>{if(!vehicle||loading)return;vehicle.paint.set(color);$$('.paint').forEach(x=>x.classList.remove('selected'));b.classList.add('selected');};$('#paint-options').append(b);
  }
 }
@@ -93,10 +93,10 @@ function playImpact(speed){
  const duration=.12+Math.min(speed/80,.15),buffer=audioContext.createBuffer(1,Math.ceil(audioContext.sampleRate*duration),audioContext.sampleRate),channel=buffer.getChannelData(0);for(let i=0;i<channel.length;i++)channel[i]=(Math.random()*2-1)*Math.exp(-i/channel.length*5);
  const source=audioContext.createBufferSource();source.buffer=buffer;const filter=audioContext.createBiquadFilter();filter.type='lowpass';filter.frequency.value=250+Math.min(speed*25,650);const gain=audioContext.createGain();gain.gain.value=volume*Math.min(speed/6,1.5);source.connect(filter).connect(gain).connect(audioContext.destination);source.start();source.onended=()=>{source.disconnect();filter.disconnect();gain.disconnect();};
 }
-function bestKey(){return `openroad-best-v7-${destination}-${selected.id}-${assists?'assisted':'unassisted'}`;}
+function bestKey(){return `openroad-best-v8-${destination}-${selected.id}-${assists?'assisted':'unassisted'}`;}
 function resetSession(){
  state=createState();state.rpm=specs.idle;
- if(city.route){Object.assign(state,{x:city.spawn.x,z:city.spawn.z,yaw:city.spawn.yaw,groundHeight:city.spawn.y,roadPitch:Math.atan(city.spawn.grade)});lapTimer=createLapTimer(city.route,city.info.halfWidth,result=>{if(result.valid){try{const key=bestKey(),saved=JSON.parse(localStorage.getItem(key)||'null');if(!saved||result.time<saved.time)localStorage.setItem(key,JSON.stringify(result));}catch{}notify(`完成第 ${lapTimer.lap} 圈 · ${formatLap(result.time)}`);}else notify(`本圈无效：${result.reason}`);});try{const saved=JSON.parse(localStorage.getItem(bestKey())||'null');if(saved&&Number.isFinite(saved.time)&&saved.time>15)lapTimer.best=saved;}catch{}lapTimer.update(state.x,state.z,0);
+ if(city.route){Object.assign(state,{x:city.spawn.x,z:city.spawn.z,yaw:city.spawn.yaw,groundHeight:city.spawn.y,roadPitch:Math.atan(city.spawn.grade)});lapTimer=createLapTimer(city.route,city.info.halfWidth,result=>{if(result.valid){try{const key=bestKey(),saved=JSON.parse(localStorage.getItem(key)||'null');localStorage.setItem(key,JSON.stringify({...lapTimer.best,sectorBests:lapTimer.sectorBests}));}catch{}notify(`完成第 ${lapTimer.lap} 圈 · ${formatLap(result.time)}`);}else notify(`本圈无效：${result.reason}`);});try{const saved=JSON.parse(localStorage.getItem(bestKey())||'null');if(saved&&Number.isFinite(saved.time)&&saved.time>15){lapTimer.best=saved;if(Array.isArray(saved.sectorBests)&&saved.sectorBests.length===3)lapTimer.sectorBests=saved.sectorBests.map(v=>Number.isFinite(v)&&v>0?v:null);}}catch{}lapTimer.update(state.x,state.z,0);
  }else lapTimer=null;
  vehicle.root.position.set(state.x,state.groundHeight||0,state.z);vehicle.root.rotation.set(state.roadPitch||0,state.yaw,0,'YXZ');vehicle.update(state,0);
  $('#lap-hud').hidden=!lapTimer;$('#cruise-button').hidden=false;$('#route-title').textContent=city.info?`${city.info.name} / 计时挑战`:'海港城 / 自由驾驶';$('#map-title').textContent=city.info?.title||'HARBOR CITY';
@@ -107,7 +107,7 @@ async function startDriving(){
  try{
   if(!worlds.has(chosen)){const world=chosen==='city'?createCity():await createCircuit(CIRCUITS.find(c=>c.id===chosen));world.scene.environment=garage.environment;world.scene.environmentIntensity=.4;worlds.set(chosen,world);if(chosen==='city')for(const id of ['MI','3S','MC'])getCarAssets(CARS.find(c=>c.id===id)).then(({model})=>world.addParked(model,id)).catch(()=>{});}
   if(token!==loadId||chosen!==destination)return;city=worlds.get(chosen);garage.remove(vehicle.root);city.scene.add(vehicle.root);resetSession();resetInputs();cruise=false;lookX=lookY=0;paused=false;inspectDamage=false;$('#damage-view').textContent='查看车身';mode='drive';cabin=false;
-  $('#garage').hidden=true;$('#drive-ui').hidden=false;$('#pause-overlay').hidden=true;document.body.classList.add('driving');$('#drive-brand').textContent=selected.brand;$('#drive-name').textContent=selected.name;$('#drive-cabin').textContent=selected.cabin+' · 第一人称';$('#pause-button').textContent='暂停';updateCruise();updateDirection();resize();startAudio();notify(lapTimer?'向前驶过黑白计时线，开始计时；白线外行驶会使本圈无效':'W / ↑ 加速，S / ↓ 刹车；A D / ← → 转向');
+  $('#garage').hidden=true;$('#drive-ui').hidden=false;$('#pause-overlay').hidden=true;document.body.classList.add('driving');$('#drive-brand').textContent=selected.brand;$('#drive-name').textContent=selected.name;$('#drive-cabin').textContent=selected.cabin+' · 第一人称';$('#pause-button').textContent='暂停';updateCruise();updateDirection();resize();startAudio();notify(lapTimer?'向前驶过黑白计时线，开始计时；短暂跑宽可返回，明显切弯仍无效':'W / ↑ 加速，S / ↓ 刹车；A D / ← → 转向');
  }catch(error){notify(error.message);}finally{starting=false;$('#start-drive').disabled=loading;$('#start-label').textContent=destination==='city'?'开始驾驶':'开始挑战';}
 }
 function returnGarage(){
@@ -198,7 +198,14 @@ function updateHUD(i){
  const damage=state.damage;$('#damage-hud').hidden=damage.revision===0;$('#damage-status').textContent=damage.disabled?'车辆无法继续行驶 · 请修复重置':'车辆受损';$('#damage-detail').textContent=`动力 ${Math.round((damage.disabled?0:Math.max(.15,1-damage.engine*.7-damage.structure*.15))*100)}% · 制动 ${Math.round((1-damage.brakes*.55)*100)}% · 转向 ${Math.round((1-damage.steering*.48)*100)}%`;
 
  $('#drive-ui').style.setProperty('--impact',String(state.impactPulse||0));$('#speed').textContent=String(Math.round(Math.abs(state.speed)*3.6)).padStart(3,'0');$('#rpm').textContent=Math.round(state.rpm/10)*10;$('#gear-number').textContent=state.direction===0?'空挡':state.direction<0?'倒挡':state.gear+' 挡';$('#rpm-fill').style.width=Math.min(100,state.rpm/specs.redline*100)+'%';$('#throttle-fill').style.width=state.throttle*100+'%';$('#brake-fill').style.width=(i.handbrake?1:state.brakePressure)*100+'%';$('#brake-state').textContent=state.brakeHold?'制动保持':i.handbrake?'手刹':state.brakePressure>.04?'制动中':'自动换挡';$('#brake-state').classList.toggle('braking',state.brakeHold||i.handbrake||state.brakePressure>.04);$('#distance').textContent=(state.distance/1000).toFixed(2)+' km';$('#road-name').textContent=city.info?`${city.info.name} · ${(city.info.length/1000).toFixed(3)} km`:Math.abs(state.x)<12?'滨海大道':state.x>200?'港湾环路':'中央街区';drawMap();
- if(lapTimer){$('#lap-clock').textContent=formatLap(lapTimer.time);$('#lap-state').textContent=lapTimer.start===null?'驶过计时线开始':!lapTimer.valid?'本圈无效 · '+lapTimer.reason:lapTimer.wrongWay?'注意行驶方向':`LAP ${String(lapTimer.lap).padStart(2,'0')} · 计时中`;$('#lap-hud').classList.toggle('invalid',!lapTimer.valid);$('#lap-best').textContent=formatLap(lapTimer.best?.time);$('#lap-last').textContent=lapTimer.last?(lapTimer.last.valid?formatLap(lapTimer.last.time):'无效圈'):'—';$$('[data-sector]').forEach((el,i)=>el.textContent=Number.isFinite(lapTimer.sectors[i])?lapTimer.sectors[i].toFixed(3):'—');}
+ if(lapTimer){
+  const v=timingView(lapTimer),signed=n=>(n>0?'+':'')+n.toFixed(3);
+  $('#lap-clock').textContent=formatLap(lapTimer.time);$('#timing-lap').textContent=lapTimer.start===null?'OUT LAP':`LAP ${String(lapTimer.lap).padStart(2,'0')}`;
+  $('#lap-state').textContent=lapTimer.start===null?'驶过计时线开始':!lapTimer.valid?'圈速删除 · '+lapTimer.reason:lapTimer.trackWarning?'返回赛道 · 容错中':`S${v.active+1} · 计时中`;
+  $('#lap-hud').classList.toggle('invalid',!lapTimer.valid);$('#lap-best').textContent=formatLap(lapTimer.best?.time);$('#lap-last').textContent=lapTimer.last?(lapTimer.last.valid?formatLap(lapTimer.last.time):'无效圈'):'—';
+  $('#lap-delta').textContent=Number.isFinite(v.delta)?signed(v.delta):'—';$('#lap-delta').className=Number.isFinite(v.delta)?(v.delta<=0?'gain':'loss'):'';
+  v.sectors.forEach((sector,i)=>{const cell=$(`[data-sector-cell="${i+1}"]`);cell.className=`sector-cell ${sector.status}`+(i===v.active&&!v.hold&&lapTimer.start!==null?' active':'');$(`[data-sector="${i+1}"]`).textContent=Number.isFinite(sector.value)?sector.value.toFixed(3):i===v.active&&lapTimer.start!==null?(lapTimer.time-lapTimer.sectors.reduce((a,b)=>a+b,0)).toFixed(3):'—';$(`[data-sector-delta="${i+1}"]`).textContent=sector.status==='invalid'?'无效':Number.isFinite(sector.delta)?signed(sector.delta):Number.isFinite(sector.value)?'基准成绩':i===v.active&&lapTimer.start!==null?'进行中':'待计时';});
+ }
 }
 let lastCollision=0;
 function animate(timestamp){

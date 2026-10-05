@@ -37,7 +37,8 @@ export function step(s,input,p,dt,world=null){
  // Use more of the dry-road steering range before intervening. Heavy braking
  // keeps a separate reserve as weight transfers off the rear; reverse retains
  // its gentler lock range because the steering axle trails the centre of mass.
- const steeringReserve=s.speed<0?.85:.97-.16*s.brakePressure;
+ const aeroRatio=(p.downforce||0)*speed*speed/(p.mass*9.81);
+ const steeringReserve=(s.speed<0?.85:.97-.16*s.brakePressure)*(p.steeringRate>1?clamp(1-.10*aeroRatio,.75,1):1);
  const lowSpeedAllowance=s.speed<0?20:8;
  const gripAccel=(p.tireGrip||1.08)*condition.grip*(input.offRoad?.5:1)*(9.81+(p.downforce||0)*speed*speed/p.mass)*steeringReserve*axleBalance;
  const steerLimit=assisted?Math.min(p.maxSteer,Math.atan(p.wheelbase*gripAccel/(speed*speed+lowSpeedAllowance))+.012):p.maxSteer*speedFactor;
@@ -63,7 +64,7 @@ export function step(s,input,p,dt,world=null){
  const countersteer=assisted&&!handbrake?clamp((speed-3)/4,0,1)*clamp(travelSign*(-slipError*(.1+recovery*.8)+(targetYaw-s.yawRate)*yawDamping),-correctionLimit,correctionLimit):0;
  const steerTarget=clamp(driverSteer+feedForward+countersteer,-p.maxSteer,p.maxSteer)*condition.steerResponse+condition.steerBias;
  const rate=assisted?(returning?3.8:6)/(1+speed/40):(Math.abs(steerTarget)<Math.abs(s.steer)?2.8:3)/(1+speed/40);
- s.steer+=clamp((steerTarget-s.steer)*(1-Math.exp(-dt*(assisted?(returning?18:38):22))),-rate*dt,rate*dt);
+ s.steer+=clamp((steerTarget-s.steer)*(1-Math.exp(-dt*(assisted?(returning?18:38):22))),-rate*dt*(p.steeringRate||1),rate*dt*(p.steeringRate||1));
  let ratio=(s.direction<0?p.reverse:p.gears[s.gear-1])*p.finalDrive;
  let rpm=speed/p.radius*ratio*60/(2*Math.PI);
  if(s.direction===1&&!s.shift){if(rpm>p.redline*.87&&s.gear<p.gears.length){s.gear++;s.shift=s.shiftDuration=.22;}else if(s.gear>1&&rpm<p.redline*.32){s.gear--;s.shift=s.shiftDuration=.15;}ratio=p.gears[s.gear-1]*p.finalDrive;rpm=speed/p.radius*ratio*60/(2*Math.PI);}

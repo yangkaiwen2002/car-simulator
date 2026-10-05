@@ -13,7 +13,7 @@ test('a clean full lap records interpolated time and three sectors',()=>{
  for(const route of routes){const results=[],t=createLapTimer(route,6,r=>results.push(r));feed(t,route,-35,route.length+4);assert.equal(results.length,1);assert.equal(results[0].valid,true);assert.ok(Math.abs(results[0].time-route.length/40)<.02);assert.equal(results[0].sectors.length,3);assert.ok(Math.abs(results[0].sectors.reduce((a,b)=>a+b,0)-results[0].time)<1e-6);assert.equal(t.lap,2);}
 });
 test('cutting outside the track invalidates a lap and never becomes a best',()=>{
- const route=routes[0],t=createLapTimer(route,6);feed(t,route,-35,100);const p=route.at(100);t.update(p.x+p.tz*25,p.z-p.tx*25,1/120);feed(t,route,100,route.length+4);assert.equal(t.last.valid,false);assert.equal(t.last.reason,'驶出赛道');assert.equal(t.best,null);
+ const route=routes[0],t=createLapTimer(route,6);feed(t,route,-35,100);const p=route.at(100);t.update(p.x+p.tz*25,p.z-p.tx*25,1/120);feed(t,route,100,route.length+4);assert.equal(t.last.valid,false);assert.equal(t.last.reason,'驶出赛道过远或过久');assert.equal(t.best,null);
 });
 test('skipped checkpoints, teleporting and reversing the start line cannot earn a lap',()=>{
  const route=routes[0],t=createLapTimer(route,6);feed(t,route,-35,50);feed(t,route,route.length-30,route.length+4);assert.equal(t.last.valid,false);assert.equal(t.best,null);
@@ -39,4 +39,24 @@ test('actual solver reports impact energy and speed, with stronger impacts causi
 test('Nordschleife is the full north loop with continuous, finite terrain heights',()=>{
  const r=routes[CIRCUITS.findIndex(c=>c.id==='nordschleife')];assert.ok(r.length>20500&&r.length<21000);assert.ok(Math.max(...r.points.map(p=>p.y))-Math.min(...r.points.map(p=>p.y))>270);
  assert.ok(r.segments.every(s=>Number.isFinite(s.grade)&&Math.abs(s.grade)<.4));const a=r.at(.001),b=r.at(r.length-.001);assert.ok(Math.abs(a.y-b.y)<.01);
+});
+
+test('brief run-wide recovers, but sustained excursions and reversing delete the lap',()=>{
+ const route=routes[1];
+ function excursion(seconds){const t=createLapTimer(route,6);feed(t,route,-35,100);for(let i=0;i<seconds*120;i++){const p=route.at(100+i/120*20),offset=8*Math.min(1,i/12,(seconds*120-1-i)/12);t.update(p.x+p.tz*offset,p.z-p.tx*offset,1/120);}const p=route.at(100+seconds*20);t.update(p.x,p.z,1/120);return t;}
+ assert.equal(excursion(.4).valid,true);assert.equal(excursion(1.5).valid,false);
+ const t=createLapTimer(route,6);feed(t,route,-35,100);for(let d=100;d>95;d-=.2){const p=route.at(d);t.update(p.x,p.z,1/120);}assert.equal(t.valid,false);assert.equal(t.reason,'逆向行驶');
+});
+test('split comparisons and live delta use the previous valid lap, never fabricated scores',async()=>{
+ const {timingView,sectorStatus}=await import('../public/driving/circuit-data.js');
+ const route=routes[1],t=createLapTimer(route,6);feed(t,route,-35,route.length+4,40);
+ assert.equal(t.best.trace.length,61);assert.equal(timingView(t).hold,true);
+ assert.equal(timingView(t).sectors.length,3);assert.ok(timingView(t).sectors.every(s=>s.status==='baseline'));
+ feed(t,route,4,route.length*.4,42);assert.ok(t.delta<0);assert.equal(timingView(t).sectors[0].status,'purple');
+ assert.equal(sectorStatus(25,0,{sectors:[27]},[24]),'green');assert.equal(sectorStatus(28,0,{sectors:[27]},[24]),'yellow');assert.equal(sectorStatus(23,0,{sectors:[27]},[24],false),'invalid');
+ const best=t.best; t.invalidate('测试无效圈');feed(t,route,route.length*.4,route.length+4,42);assert.equal(t.best,best);assert.equal(t.last.valid,false);
+});
+test('crossing time is interpolated consistently at 30 Hz and 120 Hz',()=>{
+ const route=routes[1];const run=hz=>{const t=createLapTimer(route,6);for(let d=-35;d<route.length+4;d+=40/hz){const p=route.at(d);t.update(p.x,p.z,1/hz);}return t.last;};
+ const a=run(30),b=run(120);assert.ok(a.valid&&b.valid);assert.ok(Math.abs(a.time-b.time)<.002);a.sectors.forEach((s,i)=>assert.ok(Math.abs(s-b.sectors[i])<.002));
 });

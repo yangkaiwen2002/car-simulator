@@ -1,9 +1,11 @@
 import * as THREE from '../vendor/three.module.min.js';
+import {MeshoptDecoder} from '../vendor/meshopt_decoder.module.js';
 import {GLTFLoader} from '../vendor/GLTFLoader.js';
+import {formulaDisplay} from './formula-display.js';
 import {damageVisuals} from './damage-visuals.js';
 import {splitP1Steering} from './p1-cockpit.js';
 
-export const GLTF_STEERING_AXES={M4:new THREE.Vector3(0,-.955,.297).normalize(),P1:new THREE.Vector3(0,-.94,.342).normalize(),REV:new THREE.Vector3(0,-1,0)};
+export const GLTF_STEERING_AXES={RB19:new THREE.Vector3(0,-1,0),M4:new THREE.Vector3(0,-.955,.297).normalize(),P1:new THREE.Vector3(0,-.94,.342).normalize(),REV:new THREE.Vector3(0,-1,0)};
 
 export function updateGltfWheels(wheels,steering,state,dt,axis=GLTF_STEERING_AXES.REV){
  for(const w of wheels){w.pivot.rotation.z=w.front?state.steer:0;w.spin.rotation.x-=state.speed/w.radius*dt;}
@@ -15,7 +17,7 @@ export function updateGltfWheels(wheels,steering,state,dt,axis=GLTF_STEERING_AXE
 // Bake community glTF transforms into the same x/right, y/forward, z/up
 // metre coordinates as our JOE vehicles. Preserve their actual cabin meshes.
 export async function loadGltfVehicle(car,config,specs,onProgress=()=>{}){
- const loaded=await new GLTFLoader().loadAsync(`./vehicles/cars/${car.id}/${car.model}`);
+ const loaded=await new GLTFLoader().setMeshoptDecoder(MeshoptDecoder).loadAsync(`./vehicles/cars/${car.id}/${car.model}`);
  loaded.scene.updateMatrixWorld(true);
  const bounds=new THREE.Box3().setFromObject(loaded.scene),size=bounds.getSize(new THREE.Vector3());
  const scale=car.modelLength/size.z,centerZ=(bounds.min.z+bounds.max.z)/2;
@@ -26,6 +28,8 @@ export async function loadGltfVehicle(car,config,specs,onProgress=()=>{}){
   if(!m.isMesh)return;
   const matrix=new THREE.Matrix4().multiplyMatrices(transform,m.matrixWorld);
   let geo=m.geometry.clone();
+  // Quantized model coordinates must become floats before baking metre transforms.
+  if(car.id==='RB19')for(const key of ['position','normal']){const a=geo.getAttribute(key);if(a){const values=[];for(let i=0;i<a.count;i++)values.push(a.getX(i),a.getY(i),a.getZ(i));geo.setAttribute(key,new THREE.Float32BufferAttribute(values,3));}}
   const material=m.material.clone(),name=material.name.toLowerCase();material.side=THREE.DoubleSide;
   if(car.id==='P1'&&name==='interior'){
    const parts=splitP1Steering(geo);geo.dispose();geo=parts.interior;
@@ -47,7 +51,7 @@ export async function loadGltfVehicle(car,config,specs,onProgress=()=>{}){
   if(painted){material.color=paint;material.metalness=.55;material.roughness=.3;}
   if(/windshield|windows|window|windscreen/.test(name)||(car.id==='M4'&&m.name.includes('Glass_mesh_windows'))){material.transparent=true;material.opacity=.15;material.depthWrite=false;material.roughness=.08;}
   const fixedCaliper=car.id==='M4'&&m.name.startsWith('Caliper_');
-  const isWheel=(car.id==='M4'&&(m.name.startsWith('Wheel_')||fixedCaliper))||/^(tires?|rims?|disk|disk_circles|tire_logo|brake_rotor|brake|wheel)/.test(name)&&! /light/.test(name);
+  const isWheel=(car.id==='RB19'&&m.name.startsWith('wheel_'))||(car.id==='M4'&&(m.name.startsWith('Wheel_')||fixedCaliper))||/^(tires?|rims?|disk|disk_circles|tire_logo|brake_rotor|brake|wheel)/.test(name)&&! /light/.test(name);
   if(isWheel){
    // Some exports combine all four wheels into one mesh: split triangles by
    // axle/side, so rotating them never rotates the entire four-wheel assembly.
@@ -57,9 +61,9 @@ export async function loadGltfVehicle(car,config,specs,onProgress=()=>{}){
    geo.dispose();return;
   }
   const mesh=new THREE.Mesh(geo,material);mesh.name=m.name;mesh.castShadow=!material.transparent;mesh.receiveShadow=true;
-  if((car.id==='REV'&&m.name.startsWith('Steering_wheel_'))||(car.id==='M4'&&m.name.startsWith('Steering_')))steeringParts.push(mesh);
+  if((car.id==='RB19'&&m.name==='steering_wheel')||(car.id==='REV'&&m.name.startsWith('Steering_wheel_'))||(car.id==='M4'&&m.name.startsWith('Steering_')))steeringParts.push(mesh);
   else source.add(mesh);
-  if(painted&&!/mirror/i.test(m.name))bodyParts.push(mesh);
+  if((painted&&!/mirror/i.test(m.name))||(car.id==='RB19'&&m.name==='body'))bodyParts.push(mesh);
  });
  const wheels=wheelParts.map((parts,i)=>{
   const box=new THREE.Box3();parts.forEach(m=>box.union(m.geometry.boundingBox));const center=box.getCenter(new THREE.Vector3());
@@ -69,7 +73,8 @@ export async function loadGltfVehicle(car,config,specs,onProgress=()=>{}){
  });
  const steering=new THREE.Group();if(steeringParts.length){const box=new THREE.Box3();steeringParts.forEach(m=>box.union(m.geometry.boundingBox));const center=box.getCenter(new THREE.Vector3());steering.position.copy(center);for(const m of steeringParts){m.geometry.translate(-center.x,-center.y,-center.z);steering.add(m);}source.add(steering);}
  specs.collider={hx:size.x*scale*.47,hz:car.modelLength*.49,cx:0,cz:0};
+ const updateDisplay=car.id==='RB19'?formulaDisplay(steering,scale):()=>{};
  const updateDamage=damageVisuals(root,source,bodyParts,specs);
  onProgress(1);
- return {root,source,eye:new THREE.Vector3(...car.eye),paint,bodyMaterial:bodyParts[0].material,wheels,steering,lift:0,collider:specs.collider,mass:specs.mass,update(state,dt){updateDamage(state);updateGltfWheels(wheels,steering,state,dt,GLTF_STEERING_AXES[car.id]);}};
+ return {root,source,eye:new THREE.Vector3(...car.eye),paint,bodyMaterial:bodyParts[0].material,wheels,steering,lift:0,collider:specs.collider,mass:specs.mass,update(state,dt){updateDamage(state);updateDisplay(state);updateGltfWheels(wheels,steering,state,dt,GLTF_STEERING_AXES[car.id]);}};
 }

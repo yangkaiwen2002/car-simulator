@@ -184,3 +184,12 @@ Mass 1,800 kg approximates the EU specification including driver.
 Torque interpolation, inertia, brakes, tire grip and aero are game tuning.
 The sound is a CS community placeholder, not a factory S58 recording.
 No endorsement or association with BMW or the model author is implied.
+
+RB19 (2023)
+Oracle Red Bull F1 Car RB19 2023 by Redgrund, CC BY 4.0.
+https://sketchfab.com/3d-models/oracle-red-bull-f1-car-rb19-2023-e4afe46f3aab4b23a418da06fc163821
+https://creativecommons.org/licenses/by/4.0/
+Redistributed prepared mesh from n1lays1ngh/Racing-Game commit eb8fb43ac140aec6542b7929acffce03946676a0, public/models/rb19.glb. Mirror separates wheels/steering and compresses geometry. OpenRoad scales and rigs this mesh. Original livery retained.
+Independent fan simulation, no team endorsement. 798 kg dry reference plus 15 kg fuel; power, grip, aero, torque and handling are gameplay approximations, not team telemetry. Engine sound is a placeholder shared with existing cars.
+
+Meshopt decoder: meshoptimizer by Arseny Kapoulkine, MIT, bundled from Three.js r180 examples/jsm/libs/meshopt_decoder.module.js. License notice retained in source.
