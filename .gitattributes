@@ -1,0 +1,4 @@
+* text=auto
+# Preserve the original upstream files, including Windows line endings.
+public/vehicles/** -text -whitespace
+public/vendor/** -text -whitespace
