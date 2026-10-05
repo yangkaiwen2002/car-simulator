@@ -1,4 +1,5 @@
 import * as THREE from '../vendor/three.module.min.js';
+import {damageVisuals} from './damage-visuals.js';
 import {addInstruments} from './instruments.js';
 
 // JOE v3: indexed triangles followed by separate position, normal and UV arrays.
@@ -15,6 +16,14 @@ export function decodeJoe(buffer){
     if(vi>=nv||ni>=nn||ti>=nt)throw new Error('车辆索引无效');
     for(let k=0;k<3;k++){position[i*3+k]=v.getFloat32(verts+vi*12+k*4,true);normal[i*3+k]=v.getFloat32(norms+ni*12+k*4,true);}
     uv[i*2]=v.getFloat32(uvs+ti*8,true);uv[i*2+1]=v.getFloat32(uvs+ti*8+4,true);
+  }
+  // Legacy JOE exports mix clockwise and counterclockwise faces. Respect the
+  // supplied outward normals per face instead of flipping every mesh blindly.
+  for(let i=0;i<position.length;i+=9){
+    const ax=position[i+3]-position[i],ay=position[i+4]-position[i+1],az=position[i+5]-position[i+2];
+    const bx=position[i+6]-position[i],by=position[i+7]-position[i+1],bz=position[i+8]-position[i+2];
+    const dot=(ay*bz-az*by)*(normal[i]+normal[i+3]+normal[i+6])+(az*bx-ax*bz)*(normal[i+1]+normal[i+4]+normal[i+7])+(ax*by-ay*bx)*(normal[i+2]+normal[i+5]+normal[i+8]);
+    if(dot<0){for(let k=0;k<3;k++){[position[i+3+k],position[i+6+k]]=[position[i+6+k],position[i+3+k]];[normal[i+3+k],normal[i+6+k]]=[normal[i+6+k],normal[i+3+k]];}const u=i/3*2;for(let k=0;k<2;k++)[uv[u+2+k],uv[u+4+k]]=[uv[u+4+k],uv[u+2+k]];}
   }
   const geometry=new THREE.BufferGeometry();geometry.setAttribute('position',new THREE.BufferAttribute(position,3));geometry.setAttribute('normal',new THREE.BufferAttribute(normal,3));geometry.setAttribute('uv',new THREE.BufferAttribute(uv,2));geometry.computeBoundingBox();geometry.computeBoundingSphere();return geometry;
 }
@@ -37,26 +46,31 @@ export async function loadVehicle(car,config,specs,onProgress=()=>{}){
     if(t)material.map=t;
     const mesh=new THREE.Mesh(g,material);mesh.name=name;mesh.castShadow=name==='body';mesh.receiveShadow=true;source.add(mesh);onProgress(++count/4);
   }));
+  const bodyBounds=source.getObjectByName('body').geometry.boundingBox;
+  // Source JOE axes: x is right, y forward. Exclude mirrors by a small margin.
+  specs.collider={hx:(bodyBounds.max.x-bodyBounds.min.x)*.48,hz:(bodyBounds.max.y-bodyBounds.min.y)*.495,cx:(bodyBounds.min.x+bodyBounds.max.x)/2,cz:-(bodyBounds.min.y+bodyBounds.max.y)/2};
   const wheels=[];
   await Promise.all(['fl','fr','rl','rr'].map(async (key)=>{
+    const dimensions=specs.wheels[key];
     const cfg=config['wheel.'+key],g=await geometry(asset(cfg.mesh)),t=await texture(asset(Array.isArray(cfg.texture)?cfg.texture[0]:cfg.texture));
     const pivot=new THREE.Group();pivot.position.fromArray(cfg.position);source.add(pivot);
     const spin=new THREE.Group();pivot.add(spin);
     const rim=new THREE.Mesh(g,new THREE.MeshStandardMaterial({map:t,metalness:.68,roughness:.35,side:THREE.DoubleSide}));
     // Source rims are normalized to approximately one metre in diameter.
-    rim.scale.set(specs.rim*(key.endsWith('r')?-1:1),specs.rim,specs.rim);spin.add(rim);
-    const tire=new THREE.Mesh(new THREE.TorusGeometry((specs.radius+specs.rim/2)/2,(specs.radius-specs.rim/2)/2,10,36),new THREE.MeshStandardMaterial({color:0x111417,roughness:.95}));
-    tire.rotation.y=Math.PI/2;tire.scale.z=specs.width/((specs.radius-specs.rim/2)||.1);tire.castShadow=true;spin.add(tire);wheels.push({pivot,spin,front:key.startsWith('f')});
+    rim.scale.set(dimensions.rim*(key.endsWith('r')?-1:1),dimensions.rim,dimensions.rim);spin.add(rim);
+    const tire=new THREE.Mesh(new THREE.TorusGeometry((dimensions.radius+dimensions.rim/2)/2,(dimensions.radius-dimensions.rim/2)/2,10,36),new THREE.MeshStandardMaterial({color:0x111417,roughness:.95}));
+    tire.rotation.y=Math.PI/2;tire.scale.z=dimensions.width/((dimensions.radius-dimensions.rim/2)||.1);tire.castShadow=true;spin.add(tire);wheels.push({pivot,spin,front:key.startsWith('f'),radius:dimensions.radius});
   }));
   const steeringConfig=config.steering;
   const steeringPivot=new THREE.Group();steeringPivot.position.fromArray(steeringConfig.position);if(car.id==='MI')steeringPivot.position.y-=.16;steeringPivot.rotation.set(...steeringConfig.rotation.map(v=>v*Math.PI/180));source.add(steeringPivot);
   const steering=new THREE.Mesh(await geometry(asset(steeringConfig.mesh)),new THREE.MeshStandardMaterial({map:await texture(asset(steeringConfig.texture)),roughness:.7,side:THREE.DoubleSide}));steeringPivot.add(steering);
-  const lift=-Math.min(...['fl','fr','rl','rr'].map(k=>config['wheel.'+k].position[2]-specs.radius))+.018;
+  const lift=-Math.min(...['fl','fr','rl','rr'].map(k=>config['wheel.'+k].position[2]-specs.wheels[k].radius))+.018;
   source.position.y=lift;
   const cameraConfig=Object.entries(config).find(([k,v])=>k.startsWith('camera')&&v.name==='driver')?.[1];
   const p=cameraConfig?.position||[-.35,0,.5];
   const eye=new THREE.Vector3(p[0],p[2]+lift,-p[1]).add(new THREE.Vector3(...(car.viewOffset||[0,0,0])));
   const updateInstruments=addInstruments(source,car,specs);
+  const updateDamage=damageVisuals(root,source,source.getObjectByName('body'),specs);
   onProgress(1);
-  return {root,source,eye,paint,bodyMaterial,wheels,steering,lift,update(state,dt){updateInstruments(state);for(const w of wheels){w.pivot.rotation.z=w.front?state.steer:0;w.spin.rotation.x-=state.speed/specs.radius*dt;}steering.rotation.z=state.steer/specs.maxSteer*steeringConfig['max-angle']*Math.PI/180;}};
+  return {root,source,eye,paint,bodyMaterial,wheels,steering,lift,collider:specs.collider,mass:specs.mass,update(state,dt){updateDamage(state);updateInstruments(state);for(const w of wheels){w.pivot.rotation.z=w.front?state.steer:0;w.spin.rotation.x-=state.speed/w.radius*dt;}steering.rotation.z=state.steer/specs.maxSteer*steeringConfig['max-angle']*Math.PI/180;}};
 }

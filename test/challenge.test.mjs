@@ -1,0 +1,37 @@
+import {test} from 'node:test';
+import assert from 'node:assert/strict';
+import {readFile} from 'node:fs/promises';
+import {buildRoute,createLapTimer,formatLap,CIRCUITS} from '../public/driving/circuit-data.js';
+import {createDamage,applyImpact,performance} from '../public/driving/damage.js';
+import {createBody,createCollisionWorld} from '../public/driving/collision.js';
+const routes=await Promise.all(CIRCUITS.map(async c=>buildRoute(JSON.parse(await readFile(new URL(`../public/circuits/${c.id}.geojson`,import.meta.url),'utf8')))));
+function feed(timer,route,from,to,speed=40){const dt=1/120;for(let d=from;d<to;d+=speed*dt){const p=route.at(d);timer.update(p.x,p.z,dt);}}
+test('both F1 layouts preserve projected real coordinates and circuit scale',()=>{
+ routes.forEach((route,i)=>{assert.ok(Math.abs(route.length-CIRCUITS[i].length)<CIRCUITS[i].length*.025,`${CIRCUITS[i].id}: ${route.length}`);assert.ok(route.segments.every(s=>s.len>0&&s.len<=7.01));const p=route.at(850);assert.ok(route.nearest(p.x,p.z).distance<1e-7);assert.ok(Math.abs(route.nearest(p.x,p.z).progress-850)<.001);});
+});
+test('a clean full lap records interpolated time and three sectors',()=>{
+ for(const route of routes){const results=[],t=createLapTimer(route,6,r=>results.push(r));feed(t,route,-35,route.length+4);assert.equal(results.length,1);assert.equal(results[0].valid,true);assert.ok(Math.abs(results[0].time-route.length/40)<.02);assert.equal(results[0].sectors.length,3);assert.ok(Math.abs(results[0].sectors.reduce((a,b)=>a+b,0)-results[0].time)<1e-6);assert.equal(t.lap,2);}
+});
+test('cutting outside the track invalidates a lap and never becomes a best',()=>{
+ const route=routes[0],t=createLapTimer(route,6);feed(t,route,-35,100);const p=route.at(100);t.update(p.x+p.tz*25,p.z-p.tx*25,1/120);feed(t,route,100,route.length+4);assert.equal(t.last.valid,false);assert.equal(t.last.reason,'驶出赛道');assert.equal(t.best,null);
+});
+test('skipped checkpoints, teleporting and reversing the start line cannot earn a lap',()=>{
+ const route=routes[0],t=createLapTimer(route,6);feed(t,route,-35,50);feed(t,route,route.length-30,route.length+4);assert.equal(t.last.valid,false);assert.equal(t.best,null);
+ const reverse=createLapTimer(route,6);for(let d=5;d>-10;d-=.2){const p=route.at(d);reverse.update(p.x,p.z,1/120);}assert.equal(reverse.lap,0);assert.equal(reverse.last,null);
+});
+test('reset starts a new session; paused timer only advances with simulation steps',()=>{
+ const route=routes[0],t=createLapTimer(route,6);feed(t,route,-35,40);const time=t.time;assert.equal(t.time,time);const fresh=createLapTimer(route,6);assert.equal(fresh.start,null);assert.equal(fresh.last,null);assert.equal(formatLap(65.432),'1:05.432');assert.equal(formatLap(59.9996),'1:00.000');
+});
+test('low-energy taps do not disable a car; damage reduces distinct systems',()=>{
+ const s={yaw:0,damage:createDamage()},p={mass:1200,engineLocation:'front'};applyImpact(s,p,{deltaV:.3,energy:20,normal:{x:0,z:1}});assert.equal(s.damage.revision,0);
+ applyImpact(s,p,{deltaV:14,energy:120000,normal:{x:0,z:1}});assert.ok(s.damage.front>.4);assert.equal(s.damage.exploded,false);const perf=performance(s.damage);assert.ok(perf.power<.8);assert.ok(perf.braking<1);assert.ok(perf.steerResponse<1);
+});
+test('glancing contact damages the struck side and creates alignment pull',()=>{
+ const s={yaw:0,damage:createDamage()};applyImpact(s,{mass:1300},{deltaV:8,energy:50000,normal:{x:1,z:0}});assert.ok(s.damage.left>0);assert.equal(s.damage.front,0);assert.ok(performance(s.damage).steerBias>0);
+});
+test('extreme impact disables propulsion and triggers a one-way accident effect until repair',()=>{
+ const s={yaw:0,damage:createDamage()},p={mass:1200};applyImpact(s,p,{deltaV:32,energy:550000,normal:{x:0,z:1}});assert.equal(s.damage.exploded,true);assert.equal(performance(s.damage).power,0);s.damage=createDamage();assert.equal(performance(s.damage).power,1);assert.equal(s.damage.exploded,false);
+});
+test('actual solver reports impact energy and speed, with stronger impacts causing more damage',()=>{
+ const crashes=[5,18,35].map(speed=>{const w=createCollisionWorld([{x:0,z:0,hx:30,hz:.2}]),b=createBody({x:0,z:2.21,hx:.9,hz:2,mass:1200,vz:-speed}),hit=w.advance(b,1/30);assert.ok(hit.energy>0);assert.ok(hit.deltaV>0);const s={yaw:0,damage:createDamage()};applyImpact(s,{mass:1200,engineLocation:'front'},hit);return s.damage;});assert.ok(crashes[1].front>crashes[0].front);assert.equal(crashes[0].exploded,false);assert.equal(crashes[2].exploded,true);
+});

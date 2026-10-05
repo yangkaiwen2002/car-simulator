@@ -1,20 +1,22 @@
 // Original, reduced-order simulation. Vehicle inputs come from FirstDrive/VDrift.
-// This is a flat-road bicycle model, not the VDrift rigid-body/suspension solver.
+// Tire forces and drivetrain act on a planar rigid body with impulse contacts.
+import {createBody} from './collision.js';
+import {createDamage,applyImpact,performance} from './damage.js';
 export const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 export function torqueAt(curve,rpm){
   if(rpm<=curve[0][0])return curve[0][1];
   for(let i=1;i<curve.length;i++){const a=curve[i-1],b=curve[i];if(rpm<=b[0])return a[1]+(b[1]-a[1])*(rpm-a[0])/(b[0]-a[0]);}
   return curve.at(-1)[1];
 }
-export function createState(){return {x:4.5,z:142,yaw:0,speed:0,rpm:900,gear:1,direction:1,steer:0,yawRate:0,acceleration:0,lateral:0,distance:0,shift:0,elapsed:0,collision:false};}
-export function setDirection(s,d){if(Math.abs(s.speed)>.5)return false;s.direction=d;s.gear=1;s.speed=0;return true;}
-export function step(s,input,p,dt,blocked=()=>false){
+export function createState(){return {x:4.5,z:142,yaw:0,speed:0,rpm:900,gear:1,direction:1,steer:0,yawRate:0,acceleration:0,lateral:0,distance:0,shift:0,elapsed:0,collision:false,sideSpeed:0,impact:null,impactPulse:0,impactSide:0,damage:createDamage()};}
+export function setDirection(s,d){if(Math.hypot(s.speed,s.sideSpeed||0)>.5)return false;s.direction=d;s.gear=1;s.speed=0;s.sideSpeed=0;return true;}
+export function step(s,input,p,dt,world=null){
   dt=clamp(dt,0,1/30);if(!dt)return s;
-  s.elapsed+=dt;s.shift=Math.max(0,s.shift-dt);s.collision=false;
+  s.elapsed+=dt;s.shift=Math.max(0,s.shift-dt);s.collision=false;s.impact=null;s.impactPulse=Math.max(0,(s.impactPulse||0)*Math.exp(-dt*8)-dt*.02);
   const speed=Math.abs(s.speed), throttle=clamp(input.throttle||0,0,1),brake=clamp(input.brake||0,0,1);
-  const grip=(input.handbrake?.5:.92)*9.81;
+  const condition=performance(s.damage);const grip=(input.handbrake?.5:.92)*9.81*condition.grip*(input.offRoad?.55:1);
   const speedFactor=1/(1+(speed/16)**1.6);
-  s.steer+=(clamp(input.steer||0,-1,1)*p.maxSteer*speedFactor-s.steer)*(1-Math.exp(-dt*6));
+  s.steer+=(clamp(input.steer||0,-1,1)*p.maxSteer*speedFactor*condition.steerResponse+condition.steerBias-s.steer)*(1-Math.exp(-dt*6));
   let ratio=(s.direction<0?p.reverse:p.gears[s.gear-1])*p.finalDrive;
   let rpm=speed/p.radius*ratio*60/(2*Math.PI);
   if(s.direction===1&&!s.shift){
@@ -27,11 +29,11 @@ export function step(s,input,p,dt,blocked=()=>false){
   s.rpm+=(clamp(targetRpm,p.idle,p.redline+100)-s.rpm)*(1-Math.exp(-dt*12));
   const driveFraction=p.drive==='AWD'?.92:.58;
   const torqueForce=torqueAt(p.torque,s.rpm)*ratio*.87/p.radius;
-  let drive=s.direction*throttle*Math.min(torqueForce,p.mass*grip*driveFraction);
+  let drive=s.direction*throttle*condition.power*Math.min(torqueForce,p.mass*grip*driveFraction);
   if(s.shift>0||rpm>p.redline||s.direction===0)drive=0;
-  const resistance=.5*1.225*p.drag*speed*speed+p.mass*9.81*.014;
+  const resistance=.5*1.225*p.drag*speed*speed+p.mass*9.81*(input.offRoad?.12:.014);
   const engineBrake=!throttle&&s.direction!==0?Math.min(500,speed*38):0;
-  const stopping=brake*p.mass*8.6+(input.handbrake?p.mass*4.8:0)+engineBrake+resistance;
+  const stopping=brake*p.mass*8.6*condition.braking+(input.handbrake?p.mass*4.8:0)+engineBrake+resistance;
   const oldSpeed=s.speed;
   const motionSign=Math.sign(s.speed)||Math.sign(drive);
   let newSpeed=s.speed+(drive-motionSign*stopping)/p.mass*dt;
@@ -39,11 +41,24 @@ export function step(s,input,p,dt,blocked=()=>false){
   s.speed=clamp(newSpeed,-14,95);s.acceleration=(s.speed-oldSpeed)/dt;
   const yawTarget=s.speed/p.wheelbase*Math.tan(s.steer);
   const maxYaw=grip/Math.max(speed,1);
-  s.yawRate+=(clamp(yawTarget,-maxYaw,maxYaw)-s.yawRate)*(1-Math.exp(-dt*8));
-  s.lateral=s.yawRate*s.speed;
-  const nextYaw=s.yaw+s.yawRate*dt;
-  const nx=s.x-Math.sin(nextYaw)*s.speed*dt,nz=s.z-Math.cos(nextYaw)*s.speed*dt;
-  if(blocked(nx,nz,nextYaw)){s.speed=0;s.acceleration=0;s.yawRate=0;s.collision=true;}
-  else{s.x=nx;s.z=nz;s.yaw=nextYaw;s.distance+=Math.abs(s.speed)*dt;}
+  // Tires pull velocity back toward the car's heading, limited by lateral grip.
+  const beforeSide=s.sideSpeed||0;
+  const lateralForce=clamp(-beforeSide*5,-grip,grip);
+  s.sideSpeed=beforeSide+lateralForce*dt;
+  const cornering=clamp(yawTarget,-maxYaw,maxYaw);
+  s.yawRate+=(cornering-s.yawRate)*(1-Math.exp(-dt*(input.handbrake?1.6:4)));
+  s.lateral=lateralForce;
+  const sin=Math.sin(s.yaw),cos=Math.cos(s.yaw),shape=p.collider||{hx:.9,hz:p.wheelbase/2+.7,cx:0,cz:0};
+  const offset={x:cos*(shape.cx||0)+sin*(shape.cz||0),z:-sin*(shape.cx||0)+cos*(shape.cz||0)};
+  const body=createBody({x:s.x+offset.x,z:s.z+offset.z,yaw:s.yaw,vx:-sin*s.speed+cos*s.sideSpeed,vz:-cos*s.speed-sin*s.sideSpeed,yawRate:s.yawRate,mass:p.mass,hx:shape.hx,hz:shape.hz,kind:'驾驶车辆',restitution:.12,friction:.48});
+  const oldX=s.x,oldZ=s.z;
+  if(world?.advance){s.impact=world.advance(body,dt);s.collision=!!s.impact;}
+  else{body.x+=body.vx*dt;body.z+=body.vz*dt;body.yaw+=body.yawRate*dt;}
+  const sn=Math.sin(body.yaw),cs=Math.cos(body.yaw);
+  s.x=body.x-cs*(shape.cx||0)-sn*(shape.cz||0);s.z=body.z+sn*(shape.cx||0)-cs*(shape.cz||0);s.yaw=body.yaw;s.yawRate=body.yawRate;
+  s.speed=-sn*body.vx-cs*body.vz;s.sideSpeed=cs*body.vx-sn*body.vz;
+  s.distance+=Math.hypot(s.x-oldX,s.z-oldZ);
+  if(s.impact){applyImpact(s,p,s.impact);s.impactPulse=Math.min(1,s.impact.speed/14);s.impactSide=dotSide(s.impact.normal,cs,sn);}
   return s;
 }
+function dotSide(n,c,s){return n.x*c-n.z*s;}

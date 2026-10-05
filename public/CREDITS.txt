@@ -28,7 +28,9 @@ transparent glass material and browser camera positions adapted.
 Engine sample playback rate varies with simulated RPM. Samples are community
 assets, not verified recordings of each factory vehicle.
 The shared source steering-wheel model is not a separate factory wheel per car.
-Original urban environment and website interface.
+Original urban environment, circuit scenery and website interface.
+UI hierarchy references the vehicle showcase of Forza Horizon and compact
+driving telemetry of iRacing; no logos, screenshots, fonts or UI assets copied.
 Functional gauge faces added to TC6 and MI blank dashboard areas, including
 speed, RPM, gear and on MI session time / throttle / brake. This is a simulation
 adaptation, not a factory instrument replica. MI steering position adjusted
@@ -43,8 +45,12 @@ transitions and first-person interaction. Its implementation is not bundled.
 The OpenRoad physics solver is original, not the full solver from either project.
 It uses a flat-road bicycle model, torque interpolation, automatic gears,
 aerodynamic drag, rolling resistance and simplified traction/braking limits.
-No suspension dynamics, wheel slip model, drivetrain elasticity, damage,
-manufacturer validation, traffic AI or collision rigid-body solver is included.
+No full 3D suspension, detailed wheel-slip model, drivetrain elasticity,
+manufacturer validation, traffic AI, rollover or soft-body deformation is included.
+An original planar rigid-body contact solver uses SAT manifolds, normal and
+friction impulses, angular momentum, broad-phase hashing and adaptive substeps.
+Damage/visual crumpling and extreme-impact explosion are game approximations,
+not manufacturer crash simulation or predictions of real accident outcomes.
 All displayed performance figures are community configuration values.
 
 THREE.JS
@@ -53,3 +59,41 @@ Version: r180; build/three.module.min.js and build/three.core.min.js.
 Copyright 2010-2025 three.js authors. MIT License.
 Full license: vendor/THREE-LICENSE.txt.
 No CDN is required: renderer and all game assets are served locally.
+
+ADDITIONAL VEHICLES (2026-10-05)
+Ferrari Enzo (EF), Ford GT40 (G4):
+https://github.com/Timo6/vdrift-data
+Source commit: 071272b63b3367c24d73a1188acf679f92da549a
+EF author: cinder1; settings Tim Porter; engine sample modified from CO.
+G4: Christophe Guionneau, refined/converted Dick Maurer; settings Dick Maurer
+and Cotharyus. Per-car GPL v2 license is preserved in EF/LICENSE-GPL2.txt and
+G4/License. These assets are separately licensed, not relicensed as GPL v3.
+EF uses the source pentagonal hub rim from carparts/wheel.
+G4 uses the EF/CO-derived engine sample in this build (not a factory GT40 recording).
+
+Porsche 911 Club Sport (CS), Toyota Corolla Levin (TL2), MINI Cooper S (MC):
+https://github.com/fd-firstdrive/firstdrive-data
+Source commit: 905ecc978f33cbf1e22380f89ea36f7819edf897; GPL v3.
+CS model/settings: loungekid and Racer-Xtreme contributors; imported by
+Gianni Cestari and Chris Guirl; settings Cotharyus. Source explicitly says
+its settings are not a recreation of one precise factory specification.
+TL2 model and settings: Dick Maurer. MC model/settings: Dick Maurer; Cooper S
+configuration: Cotharyus. Original about.txt files are preserved with all cars.
+CS and MC use a basic cabin embedded in the body mesh, not separate detailed interiors.
+Gallery thumbnails are rendered live from these vehicle meshes in this app.
+
+CIRCUIT GEOGRAPHIC DATA
+https://github.com/bacinger/f1-circuits
+Files: circuits/it-1922.geojson (Monza), circuits/gb-1948.geojson (Silverstone).
+Retrieved 2026-10-05, original files preserved at circuits/*.geojson.
+MIT License, Copyright (c) 2019-2025 Tomislav Bacinger; circuits/LICENSE.txt.
+Upstream credits an initial community Google My Maps dataset and Wikipedia.
+Data is unofficial and not endorsed by Formula One Licensing B.V.
+Nominal lengths cross-checked against Formula 1's official circuit pages:
+https://www.formula1.com/en/racing/2026/italy
+https://www.formula1.com/en/racing/2026/great-britain
+Geographic coordinates are projected to local metres without uniform rescaling.
+Widths, surfaces, elevation, barriers and facilities are approximate original scenery.
+Timing line = input polyline origin; sector boundaries = equal thirds of this
+projected route. These are challenge definitions, not official FIA timing data.
+No association with Formula 1, FIA, circuit owners or vehicle manufacturers.
