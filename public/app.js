@@ -1,5 +1,5 @@
 import * as THREE from './vendor/three.module.min.js';
-import {CARS,parseCar,carSpecs} from './driving/catalog.js';
+import {CARS,parseCar,carSpecs,carsInCollection} from './driving/catalog.js';
 import {loadVehicle} from './driving/joe.js';
 import {loadGltfVehicle} from './driving/gltf-vehicle.js';
 import {createCity,createGarage,makeEnvironment,STREETS} from './driving/city.js';
@@ -8,11 +8,11 @@ import {CIRCUITS,buildRoute,createLapTimer,formatLap} from './driving/circuit-da
 import {createState,step,setDirection,clamp} from './driving/physics.js';
 
 const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
-let renderer,garage,city,camera,vehicle,selected=CARS.find(c=>c.id==='P1'),specs,mode='garage',cabin=false,paused=false,loading=false,loadId=0;
+let renderer,garage,city,camera,vehicle,selected=CARS.find(c=>c.id==='M4'),specs,mode='garage',cabin=false,paused=false,loading=false,loadId=0;
 let state=createState(),lastTime=0,accumulator=0,uiTime=0,orbit=-.8,zoom=1,lookX=0,lookY=0,seat=0,fov=70,cruise=false,quality='medium',assists=true;
 let destination='city',lapTimer=null,starting=false,inspectDamage=false;const worlds=new Map();
 const keys=new Set(),touch=new Set(),cache=new Map(),thumbnails=new Map();
-const collectionOrder=['P1','REV','EF','G4','CS','TC6','TL2','MC','MI','3S'];
+const thumbnailQueue=new Set();let thumbnailsRunning=false;
 let audioContext,audioSource,audioGain,audioCar,sound=true,volume=.18,toastTimer;
 const audioBuffers=new Map();
 const reducedMotion=matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -24,11 +24,11 @@ try{const saved=JSON.parse(localStorage.getItem('openroad-settings')||'{}');fov=
 $('#assists').value=assists?'on':'off';$('#quality').value=quality;$('#fov').value=fov;$('#fov-value').textContent=fov+'°';$('#seat-height').value=seat*100;$('#seat-value').textContent=seat?Math.round(seat*100)+' cm':'标准';$('#volume').value=volume*100;
 function updateSoundLabel(){$('#sound-toggle').textContent='声音 '+(sound?'开':'关');$('#sound-toggle').setAttribute('aria-pressed',String(sound));}
 updateSoundLabel();
-function renderCards(filter='all'){
- const previousScroll=$('#car-list').scrollLeft;$('#collection-count').textContent=String(CARS.length).padStart(2,'0');$('#car-list').replaceChildren();for(const car of collectionOrder.map(id=>CARS.find(c=>c.id===id)).filter(c=>filter==='all'||c.category===filter)){
+function renderCards(filter='modern'){
+ const previousScroll=$('#car-list').scrollLeft;$('#collection-count').textContent=String(carsInCollection(filter).length).padStart(2,'0');$('#car-list').replaceChildren();for(const car of carsInCollection(filter)){
   const button=document.createElement('button');button.className='car-card'+(selected.id===car.id?' selected':'');button.setAttribute('aria-pressed',String(selected.id===car.id));button.setAttribute('aria-label',`选择 ${car.brand} ${car.name}`);
   button.dataset.car=car.id;const picture=document.createElement('img');picture.className='card-image';picture.alt='';if(thumbnails.has(car.id))picture.src=thumbnails.get(car.id);button.append(picture);
-  const entries=[['card-brand',car.brand],['card-index',String(collectionOrder.indexOf(car.id)+1).padStart(2,'0')],['card-name',car.name],['card-arrow','↗'],['card-meta',car.type],['card-tag',car.drive]];
+  const entries=[['card-brand',car.brand],['card-index',car.year?String(car.year):'CLASSIC'],['card-name',car.name],['card-arrow','↗'],['card-meta',car.type],['card-tag',car.drive]];
   for(const [className,value] of entries){const span=document.createElement('span');span.className=className;span.textContent=value;button.append(span);}button.onclick=()=>selectCar(car);$('#car-list').append(button);
  }
  $('#car-list').scrollLeft=previousScroll;requestAnimationFrame(updateCollectionArrows);
@@ -39,16 +39,19 @@ function getCarAssets(car,progress=()=>{}){
  return cache.get(car.id);
 }
 async function prepareCollection(){
+ for(const car of carsInCollection($('.filter-tabs .selected').dataset.filter))if(!thumbnails.has(car.id))thumbnailQueue.add(car.id);
+ if(thumbnailsRunning)return;thumbnailsRunning=true;
  const thumbRenderer=new THREE.WebGLRenderer({alpha:true,antialias:true});thumbRenderer.setSize(360,180);thumbRenderer.outputColorSpace=THREE.SRGBColorSpace;thumbRenderer.toneMapping=THREE.ACESFilmicToneMapping;thumbRenderer.toneMappingExposure=1.05;
  const stage=new THREE.Scene();stage.environment=garage.environment;stage.environmentIntensity=.8;stage.add(new THREE.HemisphereLight('#e6edff','#3b4151',2.2));const light=new THREE.DirectionalLight('#ffffff',3);light.position.set(-4,6,-5);stage.add(light);
  const cam=new THREE.PerspectiveCamera(36,2,.1,30);cam.position.set(-5.4,2.3,-6.7);cam.lookAt(0,.5,0);
- for(const id of collectionOrder){
+ while(thumbnailQueue.size){
+  const id=thumbnailQueue.values().next().value;thumbnailQueue.delete(id);
   try{const car=CARS.find(c=>c.id===id),{model}=await getCarAssets(car);const clone=model.root.clone();clone.position.set(0,0,0);clone.rotation.set(0,0,0);stage.add(clone);thumbRenderer.render(stage,cam);const url=thumbRenderer.domElement.toDataURL('image/png');thumbnails.set(id,url);const img=document.querySelector(`[data-car="${id}"] .card-image`);if(img)img.src=url;stage.remove(clone);
    if(city&&['MI','3S','MC'].includes(id))city.addParked(model,id);
   }catch(e){console.warn('Collection preview unavailable',id,e.message);}
   await new Promise(resolve=>setTimeout(resolve,30));
  }
- thumbRenderer.dispose();thumbRenderer.forceContextLoss();
+ thumbRenderer.dispose();thumbRenderer.forceContextLoss();thumbnailsRunning=false;
 }
 function updateCollectionArrows(){const list=$('#car-list');$('#cars-prev').disabled=list.scrollLeft<2;$('#cars-next').disabled=list.scrollLeft+list.clientWidth>=list.scrollWidth-2;}
 $('#cars-prev').onclick=()=>$('#car-list').scrollBy({left:-$('#car-list').clientWidth*.8,behavior:reducedMotion?'instant':'smooth'});
@@ -62,7 +65,7 @@ function renderPaint(){
 }
 async function selectCar(car){
  const token=++loadId;loading=true;selected=car;$('#start-drive').disabled=true;$('#start-label').textContent='加载车型…';$('#preview-cabin').disabled=true;$('#car-brand').textContent=car.brand;
- $('#car-name').textContent=car.name;$('#car-era').textContent=car.era;$('#description').textContent=car.description;$('#spec-drive').textContent=car.drive;$('#spec-power').textContent='—';$('#spec-torque').textContent='—';$('#model-status').textContent='正在载入模型';$('#header-status').textContent='正在准备座驾';
+ $('#car-name').textContent=car.name;$('#car-era').textContent=(car.year?car.year+' · ':'')+car.era;$('#description').textContent=car.description;$('#spec-drive').textContent=car.drive;$('#spec-power').textContent='—';$('#spec-torque').textContent='—';$('#model-status').textContent='正在载入模型';$('#header-status').textContent='正在准备座驾';
  if(vehicle)garage.remove(vehicle.root);vehicle=null;cabin=false;lookX=lookY=0;orbit=-.8;zoom=1;updatePreview();renderCards($('.filter-tabs .selected').dataset.filter);renderPaint();
  try{
   const pending=getCarAssets(car,progress=>{if(token===loadId)$('#model-status').textContent=`模型加载 ${Math.round(progress*100)}%`;});
@@ -127,7 +130,7 @@ function input(){
 $('#damage-view').onclick=()=>{inspectDamage=!inspectDamage;$('#damage-view').textContent=inspectDamage?'返回座舱':'查看车身';};
 $('#start-drive').onclick=startDriving;$('#return-garage').onclick=returnGarage;$('#garage-nav').onclick=returnGarage;
 $('#preview-cabin').onclick=()=>{cabin=!cabin;lookX=lookY=0;updatePreview();};
-$$('[data-filter]').forEach(b=>b.onclick=()=>{$$('[data-filter]').forEach(x=>x.classList.toggle('selected',x===b));renderCards(b.dataset.filter);$('#car-list').scrollLeft=0;updateCollectionArrows();});
+$$('[data-filter]').forEach(b=>b.onclick=()=>{$$('[data-filter]').forEach(x=>{x.classList.toggle('selected',x===b);x.setAttribute('aria-pressed',String(x===b));});renderCards(b.dataset.filter);$('#car-list').scrollLeft=0;updateCollectionArrows();prepareCollection();});
 $('#reset-car').onclick=()=>{resetSession();cruise=false;lookX=lookY=0;resetInputs();updateDirection();updateCruise();notify(lapTimer?'车辆已修复，重新驶过计时线开始挑战':'车辆已修复并返回出发点');};
 $('#pause-button').onclick=()=>setPaused(!paused);$('#resume-button').onclick=()=>{setPaused(false);startAudio();};
 $('#cruise-button').onclick=()=>{if(paused)return;if(state.direction!==1){notify('请先切换到 D 挡');return;}cruise=!cruise;updateCruise();if(cruise)notify('巡航已启用，方向仍由你控制；刹车可取消');};

@@ -4,7 +4,9 @@
 
 在网页里选择车型，在同一座海港城市中第一人称驾驶。无需账号、API 密钥、AI 图片服务或 CDN。
 
-当前车库共 10 款社区车型：McLaren P1 GTR、Lamborghini Revuelto、Ferrari Enzo、Ford GT40、Porsche 911 Club Sport、Toyota Celica GT-Four、Toyota Corolla Levin AE86、MINI Cooper S、经典 Mini 1.3 和 Mazda 3。
+车库默认展示「2021+ 新世代」：2021 BMW M4 Competition（G82 改款前座舱）和 2023 Lamborghini Revuelto。年份对应车型，不是模型上传年份。旧车型放在「经典收藏」，可以随时切换。
+
+当前车库共 11 款社区车型：BMW M4 Competition、McLaren P1 GTR、Lamborghini Revuelto、Ferrari Enzo、Ford GT40、Porsche 911 Club Sport、Toyota Celica GT-Four、Toyota Corolla Levin AE86、MINI Cooper S、经典 Mini 1.3 和 Mazda 3。
 
 支持三维展厅、车型缩略图、车身配色、第一人称驾驶及车身检查视角、键盘/触屏驾驶、自动换挡、倒挡、巡航、位置地图和引擎音效。新版加入平面刚体碰撞、车辆损伤，以及纽博格林北环、蒙扎和银石单圈计时挑战。
 
@@ -16,7 +18,7 @@
 - 制动前移/加速后移的轴荷、质心高度和横摆惯量参与运动；重刹入弯会减少转向余量，出弯大油门可导致推头或后轮失稳。下压力与车速平方关联，参数为模拟调校。
 - 刹车立即切断油门，W+S 和只按 S 的制动相同。压力渐进建立，低速保持不会误入倒挡；辅助模式有坡道静止保持。
 - `Shift + W` 使用 45% 油门，`Shift + S` 使用 35% 刹车，可在键盘上练习出弯渐进给油和带刹入弯。HUD 显示前后轴抓地利用率及牵引/稳定辅助介入。
-- 55 项测试覆盖制动、重量转移、联合抓地、晚刹、出弯油门、不同帧率、碰撞、损伤与三条赛道计时，以及全部车型的前后行驶转向、可动方向盘朝向、高速松键回正、连续变向、长弯和弯中重刹。干燥平路 100–0 km/h 模拟约 31–37 m，属于本版本标定结果，并非厂商实测值。
+- 58 项测试覆盖制动、重量转移、联合抓地、晚刹、出弯油门、不同帧率、碰撞、损伤与三条赛道计时，以及全部车型的前后行驶转向、可动方向盘朝向、高速松键回正、连续变向、长弯和弯中重刹。干燥平路 100–0 km/h 模拟约 31–37 m，属于本版本标定结果，并非厂商实测值。
 
 ### 碰撞与损伤
 
@@ -60,7 +62,9 @@ npm start
 
 ## 实现和真实性范围
 
-渲染使用本地 Three.js r180。八款旧车型的模型、贴图、声音与原始 .car 配置来自 FirstDrive/VDrift；P1 GTR 和 Revuelto 模型来自 ALIEEEN，分别使用原 GLB / glTF。十辆车使用独立的质量、扭矩曲线、齿比、主减速比、轴距、转向角和轮胎尺寸；模拟以 120 Hz 固定步长运行。
+渲染使用本地 Three.js r180。八款旧车型的模型、贴图、声音与原始 .car 配置来自 FirstDrive/VDrift；P1 GTR 和 Revuelto 模型来自 ALIEEEN，分别使用原 GLB / glTF。新加入的 BMW M4 G82 来自 SLB（现署名 Sloftm_Carz），CC BY 4.0；原模型保留 1,492,320 个三角面和原始贴图，顶点去重后几何文件从 120.7 MB 降到 54.5 MB，仍需首次下载较大资源。十一辆车使用独立的质量、扭矩曲线、齿比、主减速比、轴距、转向角和轮胎尺寸；模拟以 120 Hz 固定步长运行。
+
+M4 使用独立数字座舱、中控和带按键的原车方向盘，完整方向盘组件随转向旋转；制动卡钳随前轮转向而不随轮胎自转。375 kW / 650 Nm、8 挡齿比、主减速比、轴距和基础轮胎尺寸参考 BMW 2021 年技术规格；扭矩曲线、惯量、抓地与刹车为本项目调校。仪表与中控仍是静态原图，实时速度和挡位看 HUD，后视镜尚无实时后方画面；声效使用社区占位录音。
 
 这版是可以玩的驾驶原型，并未覆盖世界上大部分车型。模型较旧，Enzo 的仪表细节、Mini、Mazda 3、911 和 Cooper S 的座舱尤其简化，内饰精度仍待升级；Celica 和 Mini 在原模型空白仪表位置增加了自制功能仪表（不是原厂仪表艺术图）；Mazda 3 的原始仪表未动态化，实时速度和转速显示在屏幕仪表中；八款旧车方向盘使用资源库共用模型；P1 GTR 的原始赛车方向盘已从合并内饰中分离并接入转向动画，默认坐姿已校正；其原始内饰贴图仍较简单，仪表未动态化。Revuelto 使用自己的可动方向盘，仪表仍为静态贴图；后视镜尚无实时反射。画面不是摄影级扫描。P1 GTR / Revuelto 的名义功率、排量、驱动形式和挡位数参考厂商资料，其余动力曲线、齿比、质量、惯量、制动与抓地力为本项目标定；混动只用一条合成扭矩曲线，没有电池、能量回收或 DRS，两辆车的引擎声音使用 EF/CO 占位录音。社区及项目参数不是原厂认证数据，车辆名称仅用于标识模型。
 
@@ -79,6 +83,7 @@ npm start
 - [F1 circuits](https://github.com/bacinger/f1-circuits)：蒙扎、银石地理路线，MIT，版权 Tomislav Bacinger。完整许可位于 `public/circuits/LICENSE.txt`。
 - [VDrift](https://github.com/VDrift/vdrift)：JOE 格式、车辆数据与模拟设计参考。
 - [Sketchbook](https://github.com/swift502/Sketchbook)：浏览器操控、转向平滑与第一人称交互参考，未分发其代码。
+- [BMW M4 G82 / SLB](https://sketchfab.com/3d-models/bmw-m4-g82-coupe-free-high-detail-8704e302e4214c849bc607edb294be8a)：CC BY 4.0，模型改动和镜像出处详见车辆 about.txt；可在项目根目录运行 `node scripts/prepare-g82.mjs /path/to/extracted/model` 重建网页资源。
 - [ALIEEEN](https://sketchfab.com/ALIEEEN)：P1 GTR（旧作者名 Desiccated_Lemon）与 Revuelto 社区模型，CC BY 4.0，逐车出处见 CREDITS。
 - [OpenTrackData](https://github.com/chendo/opentrackdata)：纽北中心线与高程，派生自 OpenStreetMap / AWS Terrain Tiles；数据 ODbL 1.0。
 - [Three.js](https://github.com/mrdoob/three.js)：渲染，MIT。

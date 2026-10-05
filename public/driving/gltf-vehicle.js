@@ -3,7 +3,7 @@ import {GLTFLoader} from '../vendor/GLTFLoader.js';
 import {damageVisuals} from './damage-visuals.js';
 import {splitP1Steering} from './p1-cockpit.js';
 
-export const GLTF_STEERING_AXES={P1:new THREE.Vector3(0,-.94,.342).normalize(),REV:new THREE.Vector3(0,-1,0)};
+export const GLTF_STEERING_AXES={M4:new THREE.Vector3(0,-.955,.297).normalize(),P1:new THREE.Vector3(0,-.94,.342).normalize(),REV:new THREE.Vector3(0,-1,0)};
 
 export function updateGltfWheels(wheels,steering,state,dt,axis=GLTF_STEERING_AXES.REV){
  for(const w of wheels){w.pivot.rotation.z=w.front?state.steer:0;w.spin.rotation.x-=state.speed/w.radius*dt;}
@@ -36,28 +36,35 @@ export async function loadGltfVehicle(car,config,specs,onProgress=()=>{}){
   }
   geo.applyMatrix4(matrix);geo.computeBoundingBox();
   material.envMapIntensity=.8;
-  const painted=name==='main_body'||name==='body';
+  const painted=name==='main_body'||name==='body'||(car.id==='M4'&&name==='material.001');
+  if(car.id==='M4'){
+   if(m.name.startsWith('Mirror_')){material.emissive.set(0);material.emissiveIntensity=0;material.color.set('#66747c');material.metalness=.8;material.roughness=.32;material.envMapIntensity=.18;}
+   if(m.name.startsWith('Wheel_')&&name==='material.002'){material.color.set('#72767c');material.metalness=.8;material.roughness=.3;}
+   if(name==='material.010'){material.color.set('#25292d');material.metalness=.18;material.roughness=.68;}
+   if(name==='material.008'){material.color.set('#25282c');material.metalness=.06;material.roughness=.78;}
+   if(name==='material.031'){material.emissiveMap=material.map;material.emissive.set('#ffffff');material.emissiveIntensity=.18;}
+  }
   if(painted){material.color=paint;material.metalness=.55;material.roughness=.3;}
-  if(/windshield|windows|window|windscreen/.test(name)){material.transparent=true;material.opacity=.15;material.depthWrite=false;material.roughness=.08;}
-  const isWheel=/^(tires?|rims?|disk|disk_circles|tire_logo|brake_rotor|brake|wheel)/.test(name)&&! /light/.test(name);
+  if(/windshield|windows|window|windscreen/.test(name)||(car.id==='M4'&&m.name.includes('Glass_mesh_windows'))){material.transparent=true;material.opacity=.15;material.depthWrite=false;material.roughness=.08;}
+  const fixedCaliper=car.id==='M4'&&m.name.startsWith('Caliper_');
+  const isWheel=(car.id==='M4'&&(m.name.startsWith('Wheel_')||fixedCaliper))||/^(tires?|rims?|disk|disk_circles|tire_logo|brake_rotor|brake|wheel)/.test(name)&&! /light/.test(name);
   if(isWheel){
    // Some exports combine all four wheels into one mesh: split triangles by
    // axle/side, so rotating them never rotates the entire four-wheel assembly.
-   if(geo.index)geo=geo.toNonIndexed();
-   const groups=[[],[],[],[]],a=geo.attributes.position;
-   for(let i=0;i<a.count;i+=3){const x=(a.getX(i)+a.getX(i+1)+a.getX(i+2))/3,y=(a.getY(i)+a.getY(i+1)+a.getY(i+2))/3;groups[(y>0?0:2)+(x>0?1:0)].push(i,i+1,i+2);}
-   groups.forEach((indices,i)=>{if(!indices.length)return;const g=new THREE.BufferGeometry();for(const [key,attr] of Object.entries(geo.attributes)){const values=new Float32Array(indices.length*attr.itemSize);indices.forEach((index,j)=>{for(let k=0;k<attr.itemSize;k++)values[j*attr.itemSize+k]=attr.array[index*attr.itemSize+k];});g.setAttribute(key,new THREE.BufferAttribute(values,attr.itemSize));}g.computeBoundingBox();wheelParts[i].push(new THREE.Mesh(g,material));});
+   const groups=[[],[],[],[]],a=geo.attributes.position,indices=geo.index?.array||Array.from({length:a.count},(_,i)=>i);
+   for(let i=0;i<indices.length;i+=3){const ids=[indices[i],indices[i+1],indices[i+2]],x=ids.reduce((v,id)=>v+a.getX(id),0)/3,y=ids.reduce((v,id)=>v+a.getY(id),0)/3;groups[(y>0?0:2)+(x>0?1:0)].push(...ids);}
+   groups.forEach((indices,i)=>{if(!indices.length)return;const selected=[...new Set(indices)],remap=new Map(selected.map((id,j)=>[id,j])),g=new THREE.BufferGeometry();for(const [key,attr] of Object.entries(geo.attributes)){const values=new attr.array.constructor(selected.length*attr.itemSize);selected.forEach((index,j)=>{for(let k=0;k<attr.itemSize;k++)values[j*attr.itemSize+k]=attr.array[index*attr.itemSize+k];});g.setAttribute(key,new THREE.BufferAttribute(values,attr.itemSize,attr.normalized));}g.setIndex(indices.map(id=>remap.get(id)));g.computeBoundingBox();const mesh=new THREE.Mesh(g,material);mesh.userData.fixedCaliper=fixedCaliper;wheelParts[i].push(mesh);});
    geo.dispose();return;
   }
   const mesh=new THREE.Mesh(geo,material);mesh.name=m.name;mesh.castShadow=!material.transparent;mesh.receiveShadow=true;
-  if(car.id==='REV'&&m.name.startsWith('Steering_wheel_'))steeringParts.push(mesh);
+  if((car.id==='REV'&&m.name.startsWith('Steering_wheel_'))||(car.id==='M4'&&m.name.startsWith('Steering_')))steeringParts.push(mesh);
   else source.add(mesh);
   if(painted&&!/mirror/i.test(m.name))bodyParts.push(mesh);
  });
  const wheels=wheelParts.map((parts,i)=>{
   const box=new THREE.Box3();parts.forEach(m=>box.union(m.geometry.boundingBox));const center=box.getCenter(new THREE.Vector3());
   const pivot=new THREE.Group(),spin=new THREE.Group();pivot.position.copy(center);source.add(pivot);pivot.add(spin);
-  parts.forEach(m=>{m.geometry.translate(-center.x,-center.y,-center.z);m.castShadow=true;spin.add(m);});
+  parts.forEach(m=>{m.geometry.translate(-center.x,-center.y,-center.z);m.castShadow=true;(m.userData.fixedCaliper?pivot:spin).add(m);});
   return {pivot,spin,front:i<2,radius:(box.max.z-box.min.z)/2};
  });
  const steering=new THREE.Group();if(steeringParts.length){const box=new THREE.Box3();steeringParts.forEach(m=>box.union(m.geometry.boundingBox));const center=box.getCenter(new THREE.Vector3());steering.position.copy(center);for(const m of steeringParts){m.geometry.translate(-center.x,-center.y,-center.z);steering.add(m);}source.add(steering);}

@@ -157,3 +157,30 @@ No surveyed bank angle, Karussell banking, suspension motion or airborne dynamic
 THREE.JS ADDITIONAL MODULES
 GLTFLoader.js and BufferGeometryUtils.js from mrdoob/three.js r180, MIT.
 Only local import paths changed. License remains vendor/THREE-LICENSE.txt.
+
+BMW M4 G82 — MODERN COLLECTION (2026-10-05)
+BMW M4 G82 coupe — 2021-generation, pre-LCI digital cockpit
+Model: BMW M4 G82 Coupe (FREE, High-detail) by SLB (now Sloftm_Carz)
+https://sketchfab.com/3d-models/bmw-m4-g82-coupe-free-high-detail-8704e302e4214c849bc607edb294be8a
+https://sketchfab.com/SLBofficial
+License: CC BY 4.0 https://creativecommons.org/licenses/by/4.0/
+Embedded source attribution preserved in scene.gltf and source-license.txt.
+Public redistribution retrieved 2026-10-05:
+https://github.com/yldn/Unreal-gadget/blob/e405fb280f118332fc1c1fb1c8b5868422564965/Resources/BMW/bmw_m4_g82_coupe__free__high-detail.zip
+
+OpenRoad adaptations: baked scene transforms; 4.794 m length; vertex welding
+at 0.1 mm tolerance, with all 1,492,320 source triangles retained; original
+steering assembly separated by connected components; wheel and caliper motion;
+paint, cabin and glass materials; camera position and body damage integration.
+Geometry buffer reduced from 120,695,328 to 54,525,868 bytes. Original textures
+are preserved. Not a scan or a factory-certified interior. Dashboard and center
+screen artwork are static; live speed/RPM use the HUD. Mirrors are not live.
+
+Simulation represents the 2021 M4 Competition RWD (not the newer facelift).
+375 kW, 650 Nm, 2,993 cc, 8 gears, factory ratios/final drive, wheelbase and
+base tire sizes checked against BMW March 2021 technical specifications:
+https://www.press.bmwgroup.com/global/article/attachment/T0326324EN/472231
+Mass 1,800 kg approximates the EU specification including driver.
+Torque interpolation, inertia, brakes, tire grip and aero are game tuning.
+The sound is a CS community placeholder, not a factory S58 recording.
+No endorsement or association with BMW or the model author is implied.

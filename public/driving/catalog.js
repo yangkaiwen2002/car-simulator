@@ -1,6 +1,7 @@
 export const CARS = [
+ {id:'M4',year:2021,brand:'BMW',name:'M4 Competition',era:'G82 · 双涡轮直列六缸',category:'sports',type:'现代性能轿跑 / 前置后驱',color:'#b9c934',accent:'#d6ee8c',description:'数字仪表，M 运动方向盘，熟悉而精细的 G82 座舱。带着 510 马力，驶入城市或挑战纽北。',drive:'RWD',format:'gltf',model:'scene.gltf',modelLength:4.794,eye:[-.392,1.10,.08],cabin:'左舵 · G82 数字座舱',quality:'2021 G82 · 独立精细座舱 · 原车方向盘',audioPath:'./vehicles/cars/CS/engine.wav'},
  {id:'P1',brand:'McLAREN',name:'P1 GTR',era:'赛道版 · V8 混合动力',category:'sports',type:'英国超跑 / 中置后驱',color:'#f09024',accent:'#f5b86b',description:'低坐姿，长尾翼。沿纽北的森林疾驰，用细致的刹车和油门寻找下一次突破。',drive:'RWD',format:'gltf',model:'model.glb',modelLength:4.588,eye:[-.365,.80,.10],cabin:'左舵 · 社区赛道座舱',quality:'P1 GTR 独立模型 · 近似动力调校',audioPath:'./vehicles/cars/EF/engine.wav'},
- {id:'REV',brand:'LAMBORGHINI',name:'Revuelto',era:'V12 混合动力 · 八速',category:'sports',type:'意式超跑 / 四轮驱动',color:'#b9d544',accent:'#d6ee8c',description:'锋利的轮廓，鲜明的 V12 个性。四轮驱动与更从容的牵引力，让每段出弯都有新的期待。',drive:'AWD',format:'gltf',model:'scene.gltf',modelLength:4.947,eye:[-.445,.98,.02],cabin:'左舵 · 独立内饰与方向盘',quality:'Revuelto 独立模型 · 近似动力调校',audioPath:'./vehicles/cars/EF/engine.wav'},
+ {id:'REV',year:2023,brand:'LAMBORGHINI',name:'Revuelto',era:'V12 混合动力 · 八速',category:'sports',type:'意式超跑 / 四轮驱动',color:'#b9d544',accent:'#d6ee8c',description:'锋利的轮廓，鲜明的 V12 个性。四轮驱动与更从容的牵引力，让每段出弯都有新的期待。',drive:'AWD',format:'gltf',model:'scene.gltf',modelLength:4.947,eye:[-.445,.98,.02],cabin:'左舵 · 独立内饰与方向盘',quality:'Revuelto 独立模型 · 近似动力调校',audioPath:'./vehicles/cars/EF/engine.wav'},
   {id:'TC6',brand:'TOYOTA',name:'Celica GT-Four',era:'第六代 · ST205',category:'sports',type:'拉力血统 / 双门跑车',color:'#cbd8df',accent:'#c3d9e7',description:'四轮驱动，涡轮扭矩。沿着海岸线，重新认识九十年代的驾驶乐趣。',drive:'AWD',viewOffset:[0,-.02,.12],cabin:'右舵 · 经典座舱',quality:'独立座舱与车身模型'},
   {id:'MI',brand:'MINI',name:'Classic Mini',era:'经典款 · 1.3',category:'daily',type:'城市经典 / 轻量掀背',color:'#b74d36',accent:'#e39b7d',description:'小车身，短轴距。穿过街角，感受轻巧直接的城市驾驶。',drive:'FWD',viewOffset:[0,-.085,.17],cabin:'左舵 · 经典横向仪表台',quality:'独立座舱与车身模型'},
   {id:'3S',brand:'MAZDA',name:'Mazda 3',era:'第一代 · 2.3',category:'daily',type:'日常驾驶 / 运动轿车',color:'#697b92',accent:'#a6bbd4',description:'熟悉的日常，也可以值得期待。用一辆自然吸气轿车探索整座城市。',drive:'FWD',viewOffset:[0,-.075,.22],cabin:'左舵 · 基础座舱',quality:'基础座舱模型'},
@@ -45,4 +46,11 @@ export function carSpecs(config){
   const yawInertia=config.chassis?.['yaw-inertia']||massPoints.reduce((sum,p)=>sum+p.mass*((p.position[0]-cg[0])**2+(p.position[1]-cg[1])**2),0);
   const torque=Object.entries(e).filter(([k])=>k.startsWith('torque-curve')).map(([,v])=>v).sort((a,b)=>a[0]-b[0]);
   return {tireGrip:config.chassis?.['tire-grip']||1.08,downforce:config.chassis?.downforce||0,brakeForce,brakeAxles,frontAxle,rearAxle,cgHeight,yawInertia,engineLocation:config.engine.position?.[1]<0?'rear':'front',wheels,mass,torque,gears,reverse:Math.abs(t['gear-ratio-r']),finalDrive:(config['differential-center']||config['differential-front']||config['differential-rear'])['final-drive'],radius,width:size[0]/1000,rim:size[2]*.0254,power:e['max-power']/1000,redline:e['rpm-limit'],idle:e['start-rpm']||900,displacement:e.displacement*1000,peakTorque:Math.max(...torque.map(x=>x[1])),wheelbase:config['wheel.fl'].position[1]-config['wheel.rl'].position[1],maxSteer:config['wheel.fl'].steering*Math.PI/180,drag:Object.entries(config).filter(([k])=>k.startsWith('wing')).reduce((a,[,v])=>a+(v['frontal-area']||0)*(v['drag-coefficient']||0),0)||.65,drive:config['differential-center']?'AWD':config['differential-front']?'FWD':'RWD'};
+}
+
+// Year refers to the represented model, never the asset upload date.
+export const MODERN_YEAR_MIN=2021;
+export function carsInCollection(filter='modern'){
+ const ordered=[...CARS].sort((a,b)=>(b.year||0)-(a.year||0));
+ return ordered.filter(car=>filter==='all'||(filter==='modern'?car.year>=MODERN_YEAR_MIN:filter==='classic'?!(car.year>=MODERN_YEAR_MIN):car.category===filter));
 }

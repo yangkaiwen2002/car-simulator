@@ -1,0 +1,11 @@
+Model Information:
+* title:	BMW M4 G82 Coupe ( Free + High-Detail )
+* source:	https://sketchfab.com/3d-models/bmw-m4-g82-coupe-free-high-detail-8704e302e4214c849bc607edb294be8a
+* author:	SLB (https://sketchfab.com/SLBofficial)
+
+Model License:
+* license type:	CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)
+* requirements:	Author must be credited. Commercial use is allowed.
+
+If you use this 3D model in your project be sure to copy paste this credit wherever you share it:
+This work is based on "BMW M4 G82 Coupe ( Free + High-Detail )" (https://sketchfab.com/3d-models/bmw-m4-g82-coupe-free-high-detail-8704e302e4214c849bc607edb294be8a) by SLB (https://sketchfab.com/SLBofficial) licensed under CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)

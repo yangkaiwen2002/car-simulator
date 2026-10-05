@@ -1,0 +1,86 @@
+# OpenRoad approximate gameplay calibration; see about.txt. Not manufacturer .car data.
+[engine]
+mass = 220
+position = 0, .7, 0.48
+max-power = 375000
+displacement = 0.002993
+rpm-limit = 7200
+start-rpm = 850
+torque-curve-0 = 850, 210
+torque-curve-1 = 1500, 380
+torque-curve-2 = 2200, 530
+torque-curve-3 = 2750, 650
+torque-curve-4 = 4000, 650
+torque-curve-5 = 5500, 650
+torque-curve-6 = 6250, 573
+torque-curve-7 = 7200, 445
+[chassis]
+tire-grip = 1.12
+downforce = 0.04
+yaw-inertia = 3000
+mass = 1540
+position = 0, 0, 0.45
+[fuel-tank]
+volume = 50
+fuel-density = .8
+position = 0, -.1, .4
+[transmission]
+gears = 8
+gear-ratio-r = -3.478
+gear-ratio-1 = 5
+gear-ratio-2 = 3.2
+gear-ratio-3 = 2.143
+gear-ratio-4 = 1.72
+gear-ratio-5 = 1.313
+gear-ratio-6 = 1
+gear-ratio-7 = 0.823
+gear-ratio-8 = 0.64
+[differential-rear]
+final-drive = 3.154
+[wheel.fl]
+position = -0.8085, 1.5185, .359
+steering = 32
+[wheel.fl.tire]
+size = 275, 40, 18
+[wheel.fl.brake]
+friction = .4
+max-pressure = 16000000
+area = .003
+radius = .19
+bias = 1
+[wheel.fr]
+position = 0.8085, 1.5185, .359
+steering = 32
+[wheel.fr.tire]
+size = 275, 40, 18
+[wheel.fr.brake]
+friction = .4
+max-pressure = 16000000
+area = .003
+radius = .19
+bias = 1
+[wheel.rl]
+position = -0.8025, -1.3385, .359
+steering = 0
+[wheel.rl.tire]
+size = 285, 35, 19
+[wheel.rl.brake]
+friction = .4
+max-pressure = 16000000
+area = .003
+radius = .19
+bias = 0.7
+[wheel.rr]
+position = 0.8025, -1.3385, .359
+steering = 0
+[wheel.rr.tire]
+size = 285, 35, 19
+[wheel.rr.brake]
+friction = .4
+max-pressure = 16000000
+area = .003
+radius = .19
+bias = 0.7
+[wing-main]
+frontal-area = 2.29
+drag-coefficient = .34

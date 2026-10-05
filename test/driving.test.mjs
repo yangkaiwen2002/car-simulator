@@ -9,11 +9,11 @@ const configs=await Promise.all(CARS.map(async c=>parseCar(await readFile(new UR
 const specs=configs.map(carSpecs);
 function simulate(p,seconds,input={throttle:1},state=createState(),hz=120){for(let i=0;i<seconds*hz;i++)step(state,input,p,1/hz);return state;}
 
-test('all ten cars have distinct, finite powertrains and valid model assets',async()=>{
- assert.equal(CARS.length,10);assert.equal(new Set(specs.map(p=>p.mass)).size,10);
+test('all catalog cars have distinct, finite powertrains and valid model assets',async()=>{
+ assert.equal(CARS.length,11);assert.equal(new Set(specs.map(p=>p.mass)).size,CARS.length);
  for(let i=0;i<CARS.length;i++){
   const p=specs[i];assert.ok(p.mass>500&&p.mass<2000);assert.ok(p.radius>.2&&p.radius<.4);assert.ok(p.gears.length>=4&&p.gears.length<=8);assert.ok(p.torque.length>5);
-  if(CARS[i].format==='gltf'){const bytes=await readFile(new URL(`../public/vehicles/cars/${CARS[i].id}/${CARS[i].model}`,import.meta.url));if(CARS[i].id==='P1'){assert.equal(bytes.toString('ascii',0,4),'glTF');assert.equal(bytes.readUInt32LE(8),bytes.length);}else{const g=JSON.parse(bytes);assert.equal(g.asset.version,'2.0');for(const ref of [...g.buffers,...g.images])assert.ok((await readFile(new URL(`../public/vehicles/cars/REV/${ref.uri}`,import.meta.url))).length>100);}}
+  if(CARS[i].format==='gltf'){const bytes=await readFile(new URL(`../public/vehicles/cars/${CARS[i].id}/${CARS[i].model}`,import.meta.url));if(CARS[i].model.endsWith('.glb')){assert.equal(bytes.toString('ascii',0,4),'glTF');assert.equal(bytes.readUInt32LE(8),bytes.length);}else{const g=JSON.parse(bytes);assert.equal(g.asset.version,'2.0');for(const ref of [...g.buffers,...g.images])assert.ok((await readFile(new URL(`../public/vehicles/cars/${CARS[i].id}/${ref.uri}`,import.meta.url))).length>100);}}
   for(const part of ['body','interior','glass'].filter(part=>configs[i][part]?.mesh)){
    const buffer=await readFile(new URL(`../public/vehicles/cars/${CARS[i].id}/${configs[i][part].mesh}`,import.meta.url));const g=decodeJoe(buffer.buffer.slice(buffer.byteOffset,buffer.byteOffset+buffer.byteLength));
    assert.ok(g.attributes.position.count>100);assert.ok(g.boundingBox.max.x-g.boundingBox.min.x>1);assert.ok(g.boundingBox.max.x-g.boundingBox.min.x<3);
