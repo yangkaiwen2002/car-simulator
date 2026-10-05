@@ -9,3 +9,7 @@ Torque curves, gear ratios, mass, brake settings, tire grip and aero are calibra
 Hybrid propulsion uses a single combined torque curve; no battery or energy-recovery simulation.
 Engine audio is a placeholder from EF/CO, not a recording of this car.
 See ../../../CREDITS.txt for complete sources and limitations.
+
+Additional adaptation: split the original steering wheel, grips and buttons
+from the combined cabin geometry at runtime for steering animation; corrected
+driver eye position and adjusted the matte interior material. GLB unchanged.

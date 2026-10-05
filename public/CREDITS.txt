@@ -118,8 +118,11 @@ Public mirror: Ev0gs/Portfolio, public/car/ at
 7660afbc9ef88448e19ac7031d855e031a7899e4. Original glTF, buffer, textures and license preserved.
 Adaptations: scene transforms baked at runtime, real-scale normalization, original
 wheel meshes separated by axle/side, paint/glass material changes, camera placement,
-Revuelto steering animation and original-body damage deformation.
-P1 GTR's steering/dashboard are static source artwork, not live factory instruments.
+P1 GTR and Revuelto steering animation and original-body damage deformation.
+P1 GTR: original wheel/grip/button connected meshes split from the combined
+interior at runtime, driver seat corrected, matte interior material calibrated.
+Original GLB bytes are preserved. Both dashboards remain static source artwork,
+not live factory instruments.
 Revuelto's instruments are source artwork; use HUD for live speed/RPM. Mirrors do
 not render rear views. Both use an EF/CO-derived placeholder engine recording.
 These assets are separately licensed as CC BY 4.0, not relicensed as GPL.

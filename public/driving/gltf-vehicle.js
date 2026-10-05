@@ -1,6 +1,16 @@
 import * as THREE from '../vendor/three.module.min.js';
 import {GLTFLoader} from '../vendor/GLTFLoader.js';
 import {damageVisuals} from './damage-visuals.js';
+import {splitP1Steering} from './p1-cockpit.js';
+
+export const GLTF_STEERING_AXES={P1:new THREE.Vector3(0,-.94,.342).normalize(),REV:new THREE.Vector3(0,-1,0)};
+
+export function updateGltfWheels(wheels,steering,state,dt,axis=GLTF_STEERING_AXES.REV){
+ for(const w of wheels){w.pivot.rotation.z=w.front?state.steer:0;w.spin.rotation.x-=state.speed/w.radius*dt;}
+ // The baked glTF spindle points forward (+Y), away from the driver.
+ // A left rack angle must rotate the rim top toward -X, unlike JOE's +Z spindle.
+ steering.setRotationFromAxisAngle(axis,state.steer*9);
+}
 
 // Bake community glTF transforms into the same x/right, y/forward, z/up
 // metre coordinates as our JOE vehicles. Preserve their actual cabin meshes.
@@ -14,8 +24,17 @@ export async function loadGltfVehicle(car,config,specs,onProgress=()=>{}){
  const paint=new THREE.Color(car.color),bodyParts=[],wheelParts=[[],[],[],[]],steeringParts=[];
  loaded.scene.traverse(m=>{
   if(!m.isMesh)return;
-  let geo=m.geometry.clone();geo.applyMatrix4(new THREE.Matrix4().multiplyMatrices(transform,m.matrixWorld));geo.computeBoundingBox();
+  const matrix=new THREE.Matrix4().multiplyMatrices(transform,m.matrixWorld);
+  let geo=m.geometry.clone();
   const material=m.material.clone(),name=material.name.toLowerCase();material.side=THREE.DoubleSide;
+  if(car.id==='P1'&&name==='interior'){
+   const parts=splitP1Steering(geo);geo.dispose();geo=parts.interior;
+   parts.steering.applyMatrix4(matrix);parts.steering.computeBoundingBox();
+   // The uncalibrated metallic default obscures the original wheel's details.
+   material.metalness=.08;material.roughness=.82;material.metalnessMap=null;material.roughnessMap=null;
+   const wheel=new THREE.Mesh(parts.steering,material);wheel.name='P1_original_steering';wheel.castShadow=true;steeringParts.push(wheel);
+  }
+  geo.applyMatrix4(matrix);geo.computeBoundingBox();
   material.envMapIntensity=.8;
   const painted=name==='main_body'||name==='body';
   if(painted){material.color=paint;material.metalness=.55;material.roughness=.3;}
@@ -45,5 +64,5 @@ export async function loadGltfVehicle(car,config,specs,onProgress=()=>{}){
  specs.collider={hx:size.x*scale*.47,hz:car.modelLength*.49,cx:0,cz:0};
  const updateDamage=damageVisuals(root,source,bodyParts,specs);
  onProgress(1);
- return {root,source,eye:new THREE.Vector3(...car.eye),paint,bodyMaterial:bodyParts[0].material,wheels,steering,lift:0,collider:specs.collider,mass:specs.mass,update(state,dt){updateDamage(state);for(const w of wheels){w.pivot.rotation.z=w.front?state.steer:0;w.spin.rotation.x-=state.speed/w.radius*dt;}steering.rotation.y=state.steer*9;}};
+ return {root,source,eye:new THREE.Vector3(...car.eye),paint,bodyMaterial:bodyParts[0].material,wheels,steering,lift:0,collider:specs.collider,mass:specs.mass,update(state,dt){updateDamage(state);updateGltfWheels(wheels,steering,state,dt,GLTF_STEERING_AXES[car.id]);}};
 }

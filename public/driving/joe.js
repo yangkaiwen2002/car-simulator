@@ -28,6 +28,10 @@ export function decodeJoe(buffer){
   const geometry=new THREE.BufferGeometry();geometry.setAttribute('position',new THREE.BufferAttribute(position,3));geometry.setAttribute('normal',new THREE.BufferAttribute(normal,3));geometry.setAttribute('uv',new THREE.BufferAttribute(uv,2));geometry.computeBoundingBox();geometry.computeBoundingSphere();return geometry;
 }
 const geometries=new Map(),textures=new Map();
+export function updateJoeWheels(wheels,steering,config,maxSteer,state,dt){
+  for(const w of wheels){w.pivot.rotation.z=w.front?state.steer:0;w.spin.rotation.x-=state.speed/w.radius*dt;}
+  steering.rotation.z=state.steer/maxSteer*config['max-angle']*Math.PI/180;
+}
 async function geometry(url){if(!geometries.has(url))geometries.set(url,fetch(url).then(r=>{if(!r.ok)throw new Error(`模型加载失败 (${r.status})`);return r.arrayBuffer()}).then(decodeJoe).catch(e=>{geometries.delete(url);throw e}));return geometries.get(url);}
 async function texture(url){if(!textures.has(url))textures.set(url,new THREE.TextureLoader().loadAsync(url).then(t=>{t.colorSpace=THREE.SRGBColorSpace;t.flipY=false;t.anisotropy=8;return t}).catch(e=>{textures.delete(url);throw e}));return textures.get(url);}
 export async function loadVehicle(car,config,specs,onProgress=()=>{}){
@@ -72,5 +76,5 @@ export async function loadVehicle(car,config,specs,onProgress=()=>{}){
   const updateInstruments=addInstruments(source,car,specs);
   const updateDamage=damageVisuals(root,source,source.getObjectByName('body'),specs);
   onProgress(1);
-  return {root,source,eye,paint,bodyMaterial,wheels,steering,lift,collider:specs.collider,mass:specs.mass,update(state,dt){updateDamage(state);updateInstruments(state);for(const w of wheels){w.pivot.rotation.z=w.front?state.steer:0;w.spin.rotation.x-=state.speed/w.radius*dt;}steering.rotation.z=state.steer/specs.maxSteer*steeringConfig['max-angle']*Math.PI/180;}};
+  return {root,source,eye,paint,bodyMaterial,wheels,steering,lift,collider:specs.collider,mass:specs.mass,update(state,dt){updateDamage(state);updateInstruments(state);updateJoeWheels(wheels,steering,steeringConfig,specs.maxSteer,state,dt);}};
 }
