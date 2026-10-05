@@ -42,8 +42,10 @@ export function tireForces(s,input,p,driveForce,dt){
   }
   return axleForce(args);
  }
- const front=tire({forward:s.speed,right:(s.sideSpeed||0)-s.yawRate*a,steer:s.steer,normalLoad:frontLoad,nominalLoad:staticFront,drive:driveForce*frontShare,brake:frontBrake,mu,stiffness:input.assisted?10:8,mass:mass*.5,dt});
- const rear=tire({forward:s.speed,right:(s.sideSpeed||0)+s.yawRate*b,normalLoad:rearLoad,nominalLoad:mass*9.81-staticFront,drive:driveForce*(1-frontShare),brake:input.handbrake?Math.max(rearBrake,rearLoad*mu*1.6):rearBrake,mu,stiffness:input.assisted?12:8,locked:input.handbrake,mass:mass*.5,dt});
+ // Sharper road-mode tire response, with slightly stronger rear stiffness
+ // to keep release/braking recovery stable. The force limits stay unchanged.
+ const front=tire({forward:s.speed,right:(s.sideSpeed||0)-s.yawRate*a,steer:s.steer,normalLoad:frontLoad,nominalLoad:staticFront,drive:driveForce*frontShare,brake:frontBrake,mu,stiffness:input.assisted?12:8,mass:mass*.5,dt});
+ const rear=tire({forward:s.speed,right:(s.sideSpeed||0)+s.yawRate*b,normalLoad:rearLoad,nominalLoad:mass*9.81-staticFront,drive:driveForce*(1-frontShare),brake:input.handbrake?Math.max(rearBrake,rearLoad*mu*1.6):rearBrake,mu,stiffness:input.assisted?14.4:8,locked:input.handbrake,mass:mass*.5,dt});
  const moment=-a*front.right+b*rear.right;
  return {front,rear,forward:front.forward+rear.forward,right:front.right+rear.right,moment,frontLoad,rearLoad,tractionCut};
 }

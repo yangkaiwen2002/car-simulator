@@ -31,11 +31,16 @@ export function step(s,input,p,dt,world=null){
  // Road mode smooths the player's input separately from the rack. A yaw-rate
  // damping term prevents slip correction from making the car fishtail on release.
  const returning=Math.abs(intent)<Math.abs(s.steerIntent||0),reversing=intent*(s.steerIntent||0)<0;
- s.steerIntent=intent+((s.steerIntent||0)-intent)*Math.exp(-dt/(returning||reversing?.075:.12));
+ s.steerIntent=intent+((s.steerIntent||0)-intent)*Math.exp(-dt/(returning||reversing?.075:.085));
  const staticFront=p.mass*9.81*(p.rearAxle||p.wheelbase*.5)/p.wheelbase,staticRear=p.mass*9.81-staticFront;
  const axleBalance=clamp(Math.min((s.frontLoad||staticFront)/staticFront,(s.rearLoad||staticRear)/staticRear),.5,1);
- const gripAccel=(p.tireGrip||1.08)*condition.grip*(input.offRoad?.5:1)*(9.81+(p.downforce||0)*speed*speed/p.mass)*.85*axleBalance;
- const steerLimit=assisted?Math.min(p.maxSteer,Math.atan(p.wheelbase*gripAccel/(speed*speed+20))+.012):p.maxSteer*speedFactor;
+ // Use more of the dry-road steering range before intervening. Heavy braking
+ // keeps a separate reserve as weight transfers off the rear; reverse retains
+ // its gentler lock range because the steering axle trails the centre of mass.
+ const steeringReserve=s.speed<0?.85:.97-.16*s.brakePressure;
+ const lowSpeedAllowance=s.speed<0?20:8;
+ const gripAccel=(p.tireGrip||1.08)*condition.grip*(input.offRoad?.5:1)*(9.81+(p.downforce||0)*speed*speed/p.mass)*steeringReserve*axleBalance;
+ const steerLimit=assisted?Math.min(p.maxSteer,Math.atan(p.wheelbase*gripAccel/(speed*speed+lowSpeedAllowance))+.012):p.maxSteer*speedFactor;
  const driverSteer=(assisted?s.steerIntent:intent)*steerLimit;
  const targetYaw=clamp(s.speed/p.wheelbase*Math.tan(driverSteer),-gripAccel/Math.max(speed,4),gripAccel/Math.max(speed,4));
  const recovery=clamp((Math.abs(slip)-.06)/.12,0,1),correctionLimit=Math.max(.08,steerLimit*.65,Math.min(.45,Math.abs(slip)*1.5));

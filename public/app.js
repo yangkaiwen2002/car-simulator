@@ -93,7 +93,7 @@ function playImpact(speed){
  const duration=.12+Math.min(speed/80,.15),buffer=audioContext.createBuffer(1,Math.ceil(audioContext.sampleRate*duration),audioContext.sampleRate),channel=buffer.getChannelData(0);for(let i=0;i<channel.length;i++)channel[i]=(Math.random()*2-1)*Math.exp(-i/channel.length*5);
  const source=audioContext.createBufferSource();source.buffer=buffer;const filter=audioContext.createBiquadFilter();filter.type='lowpass';filter.frequency.value=250+Math.min(speed*25,650);const gain=audioContext.createGain();gain.gain.value=volume*Math.min(speed/6,1.5);source.connect(filter).connect(gain).connect(audioContext.destination);source.start();source.onended=()=>{source.disconnect();filter.disconnect();gain.disconnect();};
 }
-function bestKey(){return `openroad-best-v5-${destination}-${selected.id}-${assists?'assisted':'unassisted'}`;}
+function bestKey(){return `openroad-best-${assists?'v6':'v5'}-${destination}-${selected.id}-${assists?'assisted':'unassisted'}`;}
 function resetSession(){
  state=createState();state.rpm=specs.idle;
  if(city.route){Object.assign(state,{x:city.spawn.x,z:city.spawn.z,yaw:city.spawn.yaw,groundHeight:city.spawn.y,roadPitch:Math.atan(city.spawn.grade)});lapTimer=createLapTimer(city.route,city.info.halfWidth,result=>{if(result.valid){try{const key=bestKey(),saved=JSON.parse(localStorage.getItem(key)||'null');if(!saved||result.time<saved.time)localStorage.setItem(key,JSON.stringify(result));}catch{}notify(`完成第 ${lapTimer.lap} 圈 · ${formatLap(result.time)}`);}else notify(`本圈无效：${result.reason}`);});try{const saved=JSON.parse(localStorage.getItem(bestKey())||'null');if(saved&&Number.isFinite(saved.time)&&saved.time>15)lapTimer.best=saved;}catch{}lapTimer.update(state.x,state.z,0);

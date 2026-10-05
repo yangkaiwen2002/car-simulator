@@ -45,3 +45,29 @@ test('corner-aware ABS and traction control stay within both axle force budgets'
   for(const axle of [f.front,f.rear])assert.ok(Math.hypot(axle.forward,axle.right)<=axle.limit+1e-6,id);
  }
 });
+
+// A speed-holding driver lets the test measure turning authority instead of
+// mistaking deceleration for a tighter radius. No position or yaw is imposed.
+function circle(p,kph,steer=1){
+ const s=Object.assign(createState(),{speed:kph/3.6});let integral=0,entryYaw=0;
+ for(let i=0;i<720;i++){
+  const error=kph/3.6-s.speed;integral=Math.max(0,Math.min(1,integral+error/120*.15));
+  step(s,{steer,throttle:Math.max(0,Math.min(1,error*.4+integral))},p,1/120);
+  if(i===59)entryYaw=s.yaw;
+ }
+ return {s,entryYaw};
+}
+test('road mode can use available cornering grip instead of imposing premature understeer',()=>{
+ for(const {id,p} of cars)for(const speed of [30,50,80,120]){
+  const {s}=circle(p,speed),available=(p.tireGrip||1.08)*(9.81+(p.downforce||0)*s.speed*s.speed/p.mass),usage=s.speed*s.yawRate/available;
+  assert.ok(usage>(speed===120?.76:.8),`${id} ${speed}: steering only uses ${(usage*100).toFixed(1)}% of available grip`);
+  assert.ok(usage<1.06,`${id}: no artificial extra cornering force`);
+  assert.ok(Math.abs(Math.atan2(s.sideSpeed,s.speed))<.16,`${id}: sustained corner remains controllable`);
+ }
+});
+test('M4 turns in promptly while partial steering stays progressive',()=>{
+ const p=cars.find(c=>c.id==='M4').p,full=circle(p,80),half=circle(p,80,.5);
+ assert.ok(full.entryYaw>9.8*Math.PI/180,'first half-second responds to the driver');
+ assert.ok(full.s.speed/full.s.yawRate<54,'full steering reaches an appropriately tight radius');
+ assert.ok(half.s.yawRate>full.s.yawRate*.35&&half.s.yawRate<full.s.yawRate*.75,'partial steering is not an on/off snap');
+});
