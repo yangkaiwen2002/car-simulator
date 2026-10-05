@@ -90,7 +90,7 @@ function playImpact(speed){
  const duration=.12+Math.min(speed/80,.15),buffer=audioContext.createBuffer(1,Math.ceil(audioContext.sampleRate*duration),audioContext.sampleRate),channel=buffer.getChannelData(0);for(let i=0;i<channel.length;i++)channel[i]=(Math.random()*2-1)*Math.exp(-i/channel.length*5);
  const source=audioContext.createBufferSource();source.buffer=buffer;const filter=audioContext.createBiquadFilter();filter.type='lowpass';filter.frequency.value=250+Math.min(speed*25,650);const gain=audioContext.createGain();gain.gain.value=volume*Math.min(speed/6,1.5);source.connect(filter).connect(gain).connect(audioContext.destination);source.start();source.onended=()=>{source.disconnect();filter.disconnect();gain.disconnect();};
 }
-function bestKey(){return `openroad-best-v4-${destination}-${selected.id}-${assists?'assisted':'unassisted'}`;}
+function bestKey(){return `openroad-best-v5-${destination}-${selected.id}-${assists?'assisted':'unassisted'}`;}
 function resetSession(){
  state=createState();state.rpm=specs.idle;
  if(city.route){Object.assign(state,{x:city.spawn.x,z:city.spawn.z,yaw:city.spawn.yaw,groundHeight:city.spawn.y,roadPitch:Math.atan(city.spawn.grade)});lapTimer=createLapTimer(city.route,city.info.halfWidth,result=>{if(result.valid){try{const key=bestKey(),saved=JSON.parse(localStorage.getItem(key)||'null');if(!saved||result.time<saved.time)localStorage.setItem(key,JSON.stringify(result));}catch{}notify(`完成第 ${lapTimer.lap} 圈 · ${formatLap(result.time)}`);}else notify(`本圈无效：${result.reason}`);});try{const saved=JSON.parse(localStorage.getItem(bestKey())||'null');if(saved&&Number.isFinite(saved.time)&&saved.time>15)lapTimer.best=saved;}catch{}lapTimer.update(state.x,state.z,0);
@@ -170,12 +170,12 @@ function moveCamera(time){
   if(innerWidth>760)camera.setViewOffset(innerWidth,innerHeight,-innerWidth*.16,innerHeight*.10,innerWidth,innerHeight);
   else camera.setViewOffset(innerWidth,innerHeight,0,innerHeight*.095,innerWidth,innerHeight);
  }else{
-  camera.clearViewOffset();camera.fov=fov;localEye.copy(vehicle.eye);localEye.y+=seat;
+  camera.clearViewOffset();camera.fov=fov+(assists?clamp((Math.abs(state.speed)-15)/30,0,1)*5:0);localEye.copy(vehicle.eye);localEye.y+=seat;
   localEye.applyEuler(vehicle.root.rotation);camera.position.copy(vehicle.root.position).add(localEye);const pulse=state.impactPulse||0;camera.position.y+=Math.sin(time*49)*pulse*.032;camera.position.x+=Math.sin(time*37)*pulse*.018;
   const side=keys.has('KeyQ')?1.05:keys.has('KeyE')?-1.05:0;
-  const gaze=state.yaw+lookX+side,pitch=lookY+(state.roadPitch||0)-.025-clamp(state.acceleration*.0018,-.015,.025);
+  const gaze=state.yaw+lookX+side,pitch=lookY+(state.roadPitch||0)-.025-clamp(state.visualAcceleration*.0018,-.015,.025);
   target.set(-Math.sin(gaze)*Math.cos(pitch),Math.sin(pitch),-Math.cos(gaze)*Math.cos(pitch));camera.lookAt(camera.position.clone().add(target));
-  camera.rotateZ(clamp(-state.lateral*.002,-.016,.016)+Math.sin(time*28)*(state.impactPulse||0)*.012);
+  camera.rotateZ(clamp(-state.visualLateral*.002,-.016,.016)+Math.sin(time*28)*(state.impactPulse||0)*.012);
  }
  camera.updateProjectionMatrix();
 }
@@ -190,7 +190,7 @@ function drawMap(){
  map.restore();map.save();map.translate(w/2,h/2);map.rotate(-state.yaw);map.fillStyle='#e0fd78';map.beginPath();map.moveTo(0,-9);map.lineTo(6,7);map.lineTo(0,4);map.lineTo(-6,7);map.closePath();map.fill();map.restore();
 }
 function updateHUD(i){
- $('#handling-state').textContent=state.stabilityActive?'稳定辅助介入':state.tractionCut>.08?'牵引控制介入':state.wheelspin>.12?'驱动轮打滑':Math.abs(state.frontSlip)>.12?'前轮抓地接近极限':Math.abs(state.rearSlip)>.12?'后轮侧滑':assists?'辅助驾驶 · 开':'辅助驾驶 · 关闭';
+ $('#handling-state').textContent=state.stabilityActive?'稳定辅助介入':state.tractionCut>.08?'牵引控制介入':state.wheelspin>.12?'驱动轮打滑':Math.abs(state.frontSlip)>.12?'前轮抓地接近极限':Math.abs(state.rearSlip)>.12?'后轮侧滑':assists?'公路模式 · 流畅易控':'挑战模式 · 自由操控';
  $('#grip-front').style.width=state.frontGrip*100+'%';$('#grip-rear').style.width=state.rearGrip*100+'%';
  const damage=state.damage;$('#damage-hud').hidden=damage.revision===0;$('#damage-status').textContent=damage.disabled?'车辆无法继续行驶 · 请修复重置':'车辆受损';$('#damage-detail').textContent=`动力 ${Math.round((damage.disabled?0:Math.max(.15,1-damage.engine*.7-damage.structure*.15))*100)}% · 制动 ${Math.round((1-damage.brakes*.55)*100)}% · 转向 ${Math.round((1-damage.steering*.48)*100)}%`;
 

@@ -2,13 +2,13 @@
 // Nonlinear lateral stiffness + load sensitivity + a combined-force ellipse.
 // All constants below are game calibrations, not manufacturer tire measurements.
 const clamp=(n,a,b)=>Math.max(a,Math.min(b,n));
-export function axleForce({forward,right,steer=0,normalLoad,nominalLoad,drive=0,brake=0,mu=1.08,locked=false,mass,dt}){
+export function axleForce({forward,right,steer=0,normalLoad,nominalLoad,drive=0,brake=0,mu=1.08,locked=false,stiffness=8,mass,dt}){
  const c=Math.cos(steer),s=Math.sin(steer),u=forward*c-right*s,v=forward*s+right*c;
  const slipAngle=Math.atan2(v,Math.max(Math.abs(u),4));
  // A loaded tire does not gain force in direct proportion to added load.
  const sensitivity=clamp(1-.08*(normalLoad/Math.max(nominalLoad,1)-1),.8,1.1);
  const limit=Math.max(1,normalLoad*mu*sensitivity*(locked?.78:1));
- const lateral=-limit*Math.tanh(slipAngle*(locked?4:8));
+ const lateral=-limit*Math.tanh(slipAngle*(locked?4:stiffness));
  const brakeForce=Math.min(brake,limit,mass*Math.abs(u)/dt);
  const longitudinal=drive-Math.sign(u)*brakeForce;
  const demand=Math.hypot(longitudinal,lateral),scale=Math.min(1,limit/Math.max(demand,1));
@@ -26,6 +26,13 @@ export function tireForces(s,input,p,driveForce,dt){
  const rearBrake=Math.min(p.brakeAxles?.rear||p.brakeForce*.35||mass*10,rearLoad*mu)*s.brakePressure*input.braking;
  let tractionCut=0;
  function tire(args){
+  if(input.assisted&&args.brake&&!args.locked){
+   // Corner-aware ABS reserves lateral capacity instead of locking the rear
+   // into a spin when a keyboard player combines full brake with steering.
+   const free=axleForce({...args,drive:0,brake:0});
+   const available=Math.sqrt(Math.max(0,free.limit**2-free.lateral**2));
+   args={...args,brake:Math.min(args.brake,available)};
+  }
   if(input.assisted&&args.drive){
    const free=axleForce({...args,drive:0,brake:0});
    const available=Math.sqrt(Math.max(0,(free.limit*.97)**2-free.lateral**2));
@@ -35,8 +42,8 @@ export function tireForces(s,input,p,driveForce,dt){
   }
   return axleForce(args);
  }
- const front=tire({forward:s.speed,right:(s.sideSpeed||0)-s.yawRate*a,steer:s.steer,normalLoad:frontLoad,nominalLoad:staticFront,drive:driveForce*frontShare,brake:frontBrake,mu,mass:mass*.5,dt});
- const rear=tire({forward:s.speed,right:(s.sideSpeed||0)+s.yawRate*b,normalLoad:rearLoad,nominalLoad:mass*9.81-staticFront,drive:driveForce*(1-frontShare),brake:input.handbrake?Math.max(rearBrake,rearLoad*mu*1.6):rearBrake,mu,locked:input.handbrake,mass:mass*.5,dt});
+ const front=tire({forward:s.speed,right:(s.sideSpeed||0)-s.yawRate*a,steer:s.steer,normalLoad:frontLoad,nominalLoad:staticFront,drive:driveForce*frontShare,brake:frontBrake,mu,stiffness:input.assisted?10:8,mass:mass*.5,dt});
+ const rear=tire({forward:s.speed,right:(s.sideSpeed||0)+s.yawRate*b,normalLoad:rearLoad,nominalLoad:mass*9.81-staticFront,drive:driveForce*(1-frontShare),brake:input.handbrake?Math.max(rearBrake,rearLoad*mu*1.6):rearBrake,mu,stiffness:input.assisted?12:8,locked:input.handbrake,mass:mass*.5,dt});
  const moment=-a*front.right+b*rear.right;
  return {front,rear,forward:front.forward+rear.forward,right:front.right+rear.right,moment,frontLoad,rearLoad,tractionCut};
 }
