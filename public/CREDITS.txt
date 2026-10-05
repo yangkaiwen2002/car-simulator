@@ -1,0 +1,55 @@
+OPENROAD — Third-party notices and provenance
+
+Project source code: GPL-3.0-only. See LICENSE.txt.
+No association with or endorsement from vehicle manufacturers is implied.
+
+VEHICLE ASSETS AND CONFIGURATION
+Repository: https://github.com/fd-firstdrive/firstdrive-data
+Source branch: master (retrieved 2026-10-05)
+Repository license: GNU General Public License, version 3.
+A copy is included at vehicles/LICENSE.
+The original JOE meshes, PNG textures, .car parameters and WAV engine recordings
+are distributed in vehicles/. They are used directly by the runtime.
+The original per-car about.txt files are included alongside every car.
+
+Toyota Celica (TC6): Model by Ny. Settings based on Dick Maurer's work with TC.
+Sound, collision, shadow from TC. See cars/TC6/about.txt.
+Classic Mini (MI): Model, settings and textures by Dick Maurer.
+Mazda 3 (3S): Model by Kevin Miller; import and textures by Dick Maurer.
+Car settings by Joe Venzon, modified by Cotharyus.
+Shared steering wheel and five-spoke rim: FirstDrive/VDrift contributors;
+individual authors are not specified in the source repository.
+
+ADAPTATIONS IN OPENROAD
+Original JOE v3 browser loader; winding converted to counterclockwise;
+texture upload orientation adjusted; paint alpha interpreted as paint mask;
+rim dimensions adapted to the .car tire specification; tire geometry generated;
+transparent glass material and browser camera positions adapted.
+Engine sample playback rate varies with simulated RPM. Samples are community
+assets, not verified recordings of each factory vehicle.
+The shared source steering-wheel model is not a separate factory wheel per car.
+Original urban environment and website interface.
+Functional gauge faces added to TC6 and MI blank dashboard areas, including
+speed, RPM, gear and on MI session time / throttle / brake. This is a simulation
+adaptation, not a factory instrument replica. MI steering position adjusted
+to avoid intersection with its dashboard.
+
+PHYSICS AND REFERENCE PROJECTS
+VDrift: https://github.com/VDrift/vdrift
+JOE format and .car parameter semantics were studied to load the original assets.
+Sketchbook: https://github.com/swift502/Sketchbook
+Car.ts was studied for browser control patterns, steering smoothing, gear
+transitions and first-person interaction. Its implementation is not bundled.
+The OpenRoad physics solver is original, not the full solver from either project.
+It uses a flat-road bicycle model, torque interpolation, automatic gears,
+aerodynamic drag, rolling resistance and simplified traction/braking limits.
+No suspension dynamics, wheel slip model, drivetrain elasticity, damage,
+manufacturer validation, traffic AI or collision rigid-body solver is included.
+All displayed performance figures are community configuration values.
+
+THREE.JS
+https://github.com/mrdoob/three.js/tree/r180
+Version: r180; build/three.module.min.js and build/three.core.min.js.
+Copyright 2010-2025 three.js authors. MIT License.
+Full license: vendor/THREE-LICENSE.txt.
+No CDN is required: renderer and all game assets are served locally.

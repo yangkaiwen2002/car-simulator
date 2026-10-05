@@ -1,36 +1,160 @@
-import {World} from './engine.js';
-const $=id=>document.getElementById(id);
-let state={person:null,scene:null,name:'小屿',persona:'温暖、好奇、喜欢旅行与摄影。愿意倾听，也会分享有趣的观察。',place:'落日海边会客厅',messages:[],memories:[],job:null,splat:null,characterJob:null,characterAsset:null};
-let config={chat:false,world:false,offline:false},world,busy=false,speaking=false,run=0,toastTimer,db;
-const dbReady=new Promise((resolve,reject)=>{const r=indexedDB.open('scene-companion',1);r.onupgradeneeded=()=>r.result.createObjectStore('project');r.onsuccess=()=>{db=r.result;resolve(db)};r.onerror=()=>reject(r.error)});
-async function persist(){try{await dbReady;await new Promise((resolve,reject)=>{const tx=db.transaction('project','readwrite');tx.objectStore('project').put(state,'current');tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error)})}catch{toast('浏览器存储不可用，离开前请导出记忆')}updateCount()}
-function toast(s){$('toast').textContent=s;$('toast').hidden=false;clearTimeout(toastTimer);toastTimer=setTimeout(()=>$('toast').hidden=true,5000)}
-async function api(path,options){const r=await fetch(path,options);const data=await r.json();if(!r.ok)throw new Error(data.error||'请求失败');return data}
-function post(path,body){return api(path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)})}
-function updateCount(){$('memoryCount').textContent=state.memories.length}
-function syncFields(){for(const key of ['name','persona','place'])state[key]=$(key).value.trim()||({name:'小屿',persona:'温暖、好奇的旅伴',place:'落日海边会客厅'}[key])}
-function displayUploads(){for(const key of ['person','scene']){if(state[key]){const img=document.createElement('img');img.src=state[key];img.alt=key==='person'?'人物预览':'场景预览';$(key+'Icon').replaceChildren(img);$(key+'Hint').textContent='图片已就绪 · 点击更换'}}if(state.scene)$('previewImage').style.backgroundImage=`linear-gradient(180deg,#14282d00 25%,#102622d9),url("${state.scene}")`}
-async function imageData(file){if(!['image/png','image/jpeg','image/webp'].includes(file.type))throw new Error('请选择 PNG、JPG 或 WebP 图片');if(file.size>10*1024*1024)throw new Error('请选择 10 MB 以内的图片');const bitmap=await createImageBitmap(file);if(bitmap.width>16000||bitmap.height>16000){bitmap.close();throw new Error('图片尺寸过大')}const scale=Math.min(1,1600/Math.max(bitmap.width,bitmap.height)),c=document.createElement('canvas');c.width=Math.round(bitmap.width*scale);c.height=Math.round(bitmap.height*scale);c.getContext('2d').drawImage(bitmap,0,0,c.width,c.height);bitmap.close();return c.toDataURL(file.type==='image/png'?'image/png':'image/jpeg',.88)}
-for(const key of ['person','scene']){const accept=async file=>{if(!file)return;try{state[key]=await imageData(file);state.messages=[];if(key==='scene'){state.job=null;state.splat=null}else{state.characterJob=null;state.characterAsset=null}displayUploads();await persist();toast('图片已准备好')}catch(e){toast(e.message)}};$(key+'File').onchange=e=>accept(e.target.files[0]);const drop=$(key+'Drop');drop.ondragover=e=>{e.preventDefault();drop.classList.add('dragover')};drop.ondragleave=()=>drop.classList.remove('dragover');drop.ondrop=e=>{e.preventDefault();drop.classList.remove('dragover');accept(e.dataTransfer.files[0])}}
-function addMessage(role,content,save=true){const el=document.createElement('div');el.className='bubble '+role;el.textContent=content;$('messages').append(el);$('messages').scrollTop=$('messages').scrollHeight;if(save){state.messages.push({role,content});state.messages=state.messages.slice(-100);persist()}return el}
-function remember(text){state.memories.unshift({text,date:new Date().toISOString(),place:state.place});state.memories=state.memories.slice(0,100);persist()}
-function renderChat(){$('messages').replaceChildren();$('chatName').textContent=state.name;$('chatAvatar').textContent=state.person?'':state.name.slice(0,1);$('chatAvatar').style.backgroundImage=state.person?`url("${state.person}")`:'';if(!state.messages.length)addMessage('assistant',`嗨，我是${state.name}。很高兴和你在这里相遇。想聊聊天，还是先一起走走？`);else for(const m of state.messages)addMessage(m.role,m.content,false);$('chatMode').textContent=config.chat?'AI 角色对话 · 虚构体验':'对话服务尚未启用';}
-async function chat(message,action=''){if(busy||!message.trim())return;busy=true;$('send').disabled=true;const history=state.messages.filter(m=>['user','assistant'].includes(m.role)).slice(-20);addMessage('user',message);$('message').value='';const pending=addMessage('system','正在想怎么回答你…',false);pending.classList.add('pending');try{const result=await post('/api/chat',{message,name:state.name,persona:state.persona,place:state.place,action,history,...(config.vision?{personImage:state.person,sceneImage:state.scene}:{})});pending.remove();addMessage('assistant',result.reply);if(speaking&&'speechSynthesis'in window){speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(result.reply);u.lang='zh-CN';speechSynthesis.speak(u)}}catch(e){pending.remove();addMessage('error',e.message+'。请稍后重试。',false);$('message').value=message}finally{busy=false;$('send').disabled=false}}
-$('chatForm').onsubmit=e=>{e.preventDefault();chat($('message').value)};document.querySelectorAll('#suggestions button').forEach(b=>b.onclick=()=>chat(b.textContent));
-const actionMessages={wave:'向你挥挥手，打个招呼。',follow:'我们一起走走吧。',gift:'送你一颗虚拟的小星星。',explore:'这里有什么值得我们一起探索的？'};
-document.querySelectorAll('[data-action]').forEach(b=>b.onclick=()=>{if(busy)return;const action=b.dataset.action;if(action==='follow'){world.follow=!world.follow;b.classList.toggle('on',world.follow);if(!world.follow){toast('旅伴会在这里等你');return}}if(action==='wave')world.waveUntil=performance.now()+3000;if(action==='gift')remember(`你送给${state.name}一颗小星星。`);if(action==='explore')remember(`你和${state.name}开始探索${state.place}。`);chat(actionMessages[action],action)});
-let generating=false;
-async function enter(){if(generating)return;syncFields();await persist();if(!state.person||!state.scene){toast('请先上传人物全身图和场景图');return}if(!config.world||!config.character){const missing=[!config.world?'场景重建':'',!config.character?'人物重建':''].filter(Boolean).join('与');$('progress').hidden=false;$('progress').textContent=missing+'服务尚未启用。请联系网站运营者完成接入；不会用示例人物或场景代替你的照片。';return}const ticket=++run;generating=true;$('start').disabled=true;$('progress').hidden=false;document.querySelectorAll('.creation input,.creation textarea').forEach(e=>e.disabled=true);const statuses={world:'准备场景重建',character:'准备人物重建'};const progress=()=>{$('progress').textContent=statuses.world+' · '+statuses.character};
- try{const buildWorld=async()=>{if(state.splat){statuses.world='场景已就绪';progress();return}if(!state.job){const r=await post('/api/world',{image:state.scene,prompt:state.place+'. Preserve original geometry, materials and illumination. Static environment without people.'});state.job=r.id;await persist()}for(let i=0;i<360;i++){const r=await api('/api/world/'+encodeURIComponent(state.job));if(r.done){state.splat=r.splat;state.job=null;statuses.world='场景已就绪';await persist();progress();return}statuses.world='正在重建场景空间';progress();await new Promise(r=>setTimeout(r,5000))}throw new Error('场景仍在生成，稍后点击开始会继续等待，不会重复创建任务。')};
- const buildCharacter=async()=>{if(state.characterAsset){statuses.character='人物已就绪';progress();return}if(!state.characterJob){const r=await post('/api/character',{image:state.person});state.characterJob=r.id;await persist()}for(let i=0;i<360;i++){const r=await api('/api/character/'+encodeURIComponent(state.characterJob));if(r.done){state.characterAsset={model:r.model,actions:r.actions};state.characterJob=null;statuses.character='人物与动作已就绪';await persist();progress();return}statuses.character=({model:'重建人物外观',rig:'绑定人物骨骼',animation:'生成待机、行走和挥手动作'}[r.stage]||'生成人物')+' '+(r.progress||0)+'%';progress();await new Promise(r=>setTimeout(r,5000))}throw new Error('人物仍在生成，稍后点击开始会继续等待，不会重复创建任务。')};
- const results=await Promise.allSettled([buildWorld(),buildCharacter()]);const errors=results.filter(r=>r.status==='rejected');if(errors.length)throw new Error(errors.map(r=>r.reason.message).join('；'));if(ticket!==run)return;$('progress').textContent='正在组合真实场景与人物…';if(!world)world=new World($('world'));world.active=false;await world.loadSplat(state.splat,state.characterAsset);world.follow=false;document.querySelector('[data-action="follow"]').classList.remove('on');$('studio').hidden=true;$('experience').hidden=false;world.active=true;$('worldName').textContent=state.place;$('worldMode').textContent='照片重建 · 3D 人物与场景';renderChat();remember('你和'+state.name+'进入了'+state.place+'。');
- }catch(e){$('progress').textContent=e.message;toast(e.message)}finally{generating=false;$('start').disabled=false;document.querySelectorAll('.creation input,.creation textarea').forEach(e=>e.disabled=false);if(!$('experience').hidden)$('progress').hidden=true}}
-$('start').onclick=()=>enter();$('demo').onclick=()=>{$('help').click()};$('back').onclick=()=>{++run;world.active=false;world.keys.clear();$('experience').hidden=true;$('studio').hidden=false;window.speechSynthesis?.cancel();persist()};$('reset').onclick=()=>world.reset();$('night').hidden=true;$('voice').onclick=()=>{if(!('speechSynthesis'in window)){toast('浏览器暂不支持朗读');return}speaking=!speaking;$('voice').setAttribute('aria-pressed',String(speaking));$('voice').style.background=speaking?'#c4d9c4':'';if(!speaking)speechSynthesis.cancel();toast(speaking?'已开启角色回复朗读':'已关闭朗读')};
-function download(data,name){const a=document.createElement('a');a.href=data;a.download=name;a.click()}
-$('capture').onclick=()=>{try{download(world.screenshot(),'彼境-共同瞬间.png');remember(`与${state.name}拍下一张共同的风景。`);toast('照片已保存')}catch{toast('照片保存失败，请重试')}};
-for(const button of document.querySelectorAll('[data-move]')){button.onpointerdown=e=>{e.preventDefault();button.setPointerCapture(e.pointerId);world.keys.add(button.dataset.move)};button.onpointerup=button.onpointercancel=()=>world.keys.delete(button.dataset.move)}
-function modal(title){$('modalContent').replaceChildren();const h=document.createElement('h2');h.textContent=title;$('modalContent').append(h);$('modal').showModal();return $('modalContent')}
-$('closeModal').onclick=()=>$('modal').close();$('modal').onclick=e=>{if(e.target===$('modal'))$('modal').close()};$('help').onclick=()=>{const node=modal('两张图片，一次相遇');const p=document.createElement('p');p.textContent='上传人物图与场景图，为旅伴取名，再点击「开始模拟」。在场景中拖动鼠标观察，使用 W A S D 移动，Q / E 升降。手机可使用画面方向键。';node.append(p);const note=document.createElement('p');note.textContent='场景图会重建成可探索的 3D 世界，人物图会经历外观重建、骨骼绑定、动作生成。建议使用四肢清晰的全身照。生成通常需要数分钟，完成后才能进入。单张图未展示的部分由模型推测，外观还原效果取决于生成服务，不能保证照片级一致。';node.append(note);const privacy=document.createElement('p');privacy.textContent='图片默认只存于当前浏览器。开始生成时，场景图会发送给 World Labs，人物图会发送给 Meshy；启用视觉聊天时，图片会发送给网站配置的 AI 服务。请使用你有权使用的图片。';node.append(privacy)};
-$('memories').onclick=()=>{const node=modal('我们的记忆');if(!state.memories.length){const p=document.createElement('p');p.textContent='还没有共同记忆。进入世界，开始你们的第一次相遇。';node.append(p)}for(const m of state.memories){const el=document.createElement('div');el.className='memory';const date=document.createElement('small');date.textContent=new Date(m.date).toLocaleString('zh-CN')+' · '+m.place;el.append(date,document.createTextNode(m.text));node.append(el)}if(state.memories.length){const exportBtn=document.createElement('button');exportBtn.className='primary';exportBtn.textContent='导出记忆与对话';exportBtn.onclick=()=>{const blob=new Blob([JSON.stringify({name:state.name,place:state.place,memories:state.memories,messages:state.messages},null,2)],{type:'application/json'});const url=URL.createObjectURL(blob);download(url,'彼境-记忆.json');setTimeout(()=>URL.revokeObjectURL(url),1000)};node.append(exportBtn)}};
-$('home').onclick=()=>window.scrollTo({top:0,behavior:'smooth'});
-(async()=>{try{await dbReady;const saved=await new Promise((resolve,reject)=>{const r=db.transaction('project').objectStore('project').get('current');r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error)});if(saved){state={...state,...saved};for(const k of ['name','persona','place'])$(k).value=state[k];displayUploads();updateCount()}}catch{toast('无法读取本地存档，仍可继续体验')}try{config=await api('/api/config');if(config.world&&config.character)$('modeHint').textContent='开始后，图片将发送至场景与人物重建服务。生成需要数分钟。';else $('modeHint').textContent='真实重建服务尚未启用 · 不会用示例模型替代你的图片。';if(config.vision)$('modeHint').textContent+=' 对话时图片会发送给 AI 服务。'}catch{config.offline=true;$('modeHint').textContent='生成服务暂未连接，请联系网站运营者。'}})();
+import * as THREE from './vendor/three.module.min.js';
+import {CARS,parseCar,carSpecs} from './driving/catalog.js';
+import {loadVehicle} from './driving/joe.js';
+import {createCity,createGarage,makeEnvironment,STREETS} from './driving/city.js';
+import {createState,step,setDirection,clamp} from './driving/physics.js';
+
+const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
+let renderer,garage,city,camera,vehicle,selected=CARS[0],specs,mode='garage',cabin=false,paused=false,loading=false,loadId=0;
+let state=createState(),lastTime=0,accumulator=0,uiTime=0,orbit=-.8,zoom=1,lookX=0,lookY=0,seat=0,fov=70,cruise=false,quality='medium';
+const keys=new Set(),touch=new Set(),cache=new Map();
+let audioContext,audioSource,audioGain,audioCar,sound=true,volume=.18,toastTimer;
+const audioBuffers=new Map();
+const reducedMotion=matchMedia('(prefers-reduced-motion: reduce)').matches;
+function notify(message){$('#toast').textContent=message;$('#toast').hidden=false;clearTimeout(toastTimer);toastTimer=setTimeout(()=>$('#toast').hidden=true,3800);}
+function fatal(error){console.error(error);$('#fatal-message').textContent=error.message||String(error);$('#fatal').hidden=false;}
+function resetInputs(){keys.clear();touch.clear();}
+function saveSettings(){try{localStorage.setItem('openroad-settings',JSON.stringify({fov,seat,volume,quality,sound}));}catch{}}
+try{const saved=JSON.parse(localStorage.getItem('openroad-settings')||'{}');fov=clamp(Number(saved.fov)||70,55,95);seat=clamp(Number(saved.seat)||0,-.1,.14);volume=clamp(Number.isFinite(saved.volume)?saved.volume:.18,0,1);quality=['low','medium','high'].includes(saved.quality)?saved.quality:'medium';sound=saved.sound!==false;}catch{}
+$('#quality').value=quality;$('#fov').value=fov;$('#fov-value').textContent=fov+'°';$('#seat-height').value=seat*100;$('#seat-value').textContent=seat?Math.round(seat*100)+' cm':'标准';$('#volume').value=volume*100;
+function updateSoundLabel(){$('#sound-toggle').textContent='声音 '+(sound?'开':'关');$('#sound-toggle').setAttribute('aria-pressed',String(sound));}
+updateSoundLabel();
+function renderCards(filter='all'){
+ $('#car-list').replaceChildren();for(const car of CARS.filter(c=>filter==='all'||c.category===filter)){
+  const button=document.createElement('button');button.className='car-card'+(selected.id===car.id?' selected':'');button.setAttribute('aria-pressed',String(selected.id===car.id));button.setAttribute('aria-label',`选择 ${car.brand} ${car.name}`);
+  const entries=[['card-brand',car.brand],['card-index','0'+(CARS.indexOf(car)+1)],['card-name',car.name],['card-arrow','↗'],['card-meta',car.type],['card-tag',car.drive]];
+  for(const [className,value] of entries){const span=document.createElement('span');span.className=className;span.textContent=value;button.append(span);}button.onclick=()=>selectCar(car);$('#car-list').append(button);
+ }
+}
+function renderPaint(){
+ $('#paint-options').replaceChildren();for(const [i,color] of [selected.color,'#294d45','#902e2b','#d8c29c','#2c3034'].entries()){
+  const b=document.createElement('button');b.className='paint'+(i===0?' selected':'');b.style.backgroundColor=color;b.setAttribute('aria-label',['原色','森林绿','酒红','香槟金','石墨黑'][i]);b.title=b.getAttribute('aria-label');b.onclick=()=>{if(!vehicle||loading)return;vehicle.paint.set(color);$$('.paint').forEach(x=>x.classList.remove('selected'));b.classList.add('selected');};$('#paint-options').append(b);
+ }
+}
+async function selectCar(car){
+ const token=++loadId;loading=true;selected=car;$('#start-drive').disabled=true;$('#start-label').textContent='加载车型…';$('#preview-cabin').disabled=true;$('#car-brand').textContent=car.brand;
+ $('#car-name').textContent=car.name;$('#car-era').textContent=car.era;$('#description').textContent=car.description;$('#spec-drive').textContent=car.drive;$('#spec-power').textContent='—';$('#spec-torque').textContent='—';$('#model-status').textContent='正在载入模型';$('#header-status').textContent='车辆资源本地加载';
+ if(vehicle)garage.remove(vehicle.root);vehicle=null;cabin=false;lookX=lookY=0;orbit=-.8;zoom=1;updatePreview();renderCards($('.filter-tabs .selected').dataset.filter);renderPaint();
+ try{
+  if(!cache.has(car.id))cache.set(car.id,(async()=>{const response=await fetch(`./vehicles/cars/${car.id}/${car.id}.car`);if(!response.ok)throw new Error('车辆参数加载失败，请刷新重试');const config=parseCar(await response.text());const data=carSpecs(config);const model=await loadVehicle(car,config,data,progress=>{if(token===loadId)$('#model-status').textContent=`模型加载 ${Math.round(progress*100)}%`;});return {model,data,config};})().catch(e=>{cache.delete(car.id);throw e;}));
+  const result=await cache.get(car.id);if(token!==loadId)return;
+  vehicle=result.model;specs=result.data;vehicle.paint.set(car.color);vehicle.root.position.set(0,0,0);vehicle.root.rotation.set(0,0,0);vehicle.source.rotation.set(-Math.PI/2,0,0);garage.add(vehicle.root);state=createState();state.rpm=specs.idle;vehicle.update(state,0);
+  $('#spec-power').textContent=Math.round(specs.power);$('#spec-torque').textContent=Math.round(specs.peakTorque);$('#start-drive').disabled=false;$('#preview-cabin').disabled=false;$('#start-label').textContent='开始驾驶';$('#model-status').textContent=car.quality;$('#header-status').textContent='车辆就绪 · 随时出发';loading=false;
+ }catch(error){if(token!==loadId)return;loading=false;$('#model-status').textContent='载入失败';$('#start-label').textContent='点击重试';$('#start-drive').disabled=false;notify(error.message);}
+}
+function updatePreview(){$('#preview-mode').textContent=cabin?'座舱视角':'外观视角';$('#preview-cabin').textContent=cabin?'返回外观 ↗':'查看内饰 ↗';$('#drag-hint').textContent=cabin?'拖动环顾 · C 视线回正':'拖动旋转 · 滚轮缩放';}
+function setPaused(value,reason='驾驶已暂停'){
+ if(mode!=='drive')return;paused=value;resetInputs();$('#pause-overlay').hidden=!value;$('#pause-reason').textContent=reason;$('#pause-button').textContent=value?'继续':'暂停';if(value&&audioGain)audioGain.gain.setTargetAtTime(0,audioContext.currentTime,.1);lastTime=0;accumulator=0;
+}
+async function startAudio(){
+ try{
+  audioContext||=new AudioContext();await audioContext.resume();
+  const car=selected.id;if(audioCar===car&&audioSource)return;
+  audioSource?.stop();audioSource=null;audioCar=car;
+  if(!audioBuffers.has(car)){const r=await fetch(`./vehicles/cars/${car}/engine.wav`);if(!r.ok)throw new Error('音频缺失');audioBuffers.set(car,await audioContext.decodeAudioData(await r.arrayBuffer()));}
+  if(mode!=='drive'||car!==selected.id)return;
+  audioSource=audioContext.createBufferSource();audioSource.buffer=audioBuffers.get(car);audioSource.loop=true;audioGain=audioContext.createGain();audioGain.gain.value=0;audioSource.connect(audioGain).connect(audioContext.destination);audioSource.start();
+ }catch(error){console.warn('Engine audio unavailable:',error);notify('声音未能开启，仍可继续驾驶');}
+}
+function startDriving(){
+ if(!vehicle||loading){if(!loading)selectCar(selected);return;}
+ garage.remove(vehicle.root);if(!city){city=createCity();city.scene.environment=garage.environment;city.scene.environmentIntensity=.32;city.addParked(vehicle);}
+ city.scene.add(vehicle.root);state=createState();state.rpm=specs.idle;resetInputs();cruise=false;lookX=lookY=0;paused=false;mode='drive';cabin=false;
+ $('#garage').hidden=true;$('#drive-ui').hidden=false;$('#pause-overlay').hidden=true;document.body.classList.add('driving');$('#drive-brand').textContent=selected.brand;$('#drive-name').textContent=selected.name;$('#drive-cabin').textContent=selected.cabin+' · 第一人称';$('#pause-button').textContent='暂停';updateCruise();updateDirection();resize();startAudio();notify('W / ↑ 加速，S / ↓ 刹车；A D / ← → 转向');
+}
+function returnGarage(){
+ if(mode!=='drive')return;mode='garage';paused=false;cruise=false;resetInputs();audioSource?.stop();audioSource=null;audioCar=null;
+ city.scene.remove(vehicle.root);vehicle.root.position.set(0,0,0);vehicle.root.rotation.set(0,0,0);vehicle.source.rotation.set(-Math.PI/2,0,0);garage.add(vehicle.root);state=createState();vehicle.update(state,0);cabin=false;lookX=lookY=0;updatePreview();
+ $('#garage').hidden=false;$('#drive-ui').hidden=true;document.body.classList.remove('driving');resize();
+}
+function updateDirection(){$$('[data-direction]').forEach(b=>b.classList.toggle('selected',Number(b.dataset.direction)===state.direction));}
+function direction(value){if(mode!=='drive')return;if(!setDirection(state,value)){notify('请先停稳，再切换挡位');return;}cruise=false;updateDirection();updateCruise();}
+function updateCruise(){$('#cruise-button').setAttribute('aria-pressed',String(cruise));$('#cruise-button').innerHTML=cruise?'巡航 35 km/h · 点击取消 <span>×</span>':'启用 35 km/h 巡航 <span>→</span>';}
+function input(){
+ const brake=keys.has('KeyS')||keys.has('ArrowDown')||touch.has('brake')?1:0;
+ const handbrake=keys.has('Space');
+ if((brake||handbrake)&&cruise){cruise=false;updateCruise();}
+ const rawThrottle=keys.has('KeyW')||keys.has('ArrowUp')||touch.has('throttle')?1:0;
+ const throttle=cruise?clamp((35/3.6-state.speed)*.65+.1,0,1):rawThrottle;
+ return {throttle,brake:cruise?Math.max(brake,clamp((state.speed-35/3.6)*.3,0,.4)):brake,handbrake,steer:(keys.has('KeyA')||keys.has('ArrowLeft')||touch.has('left')?1:0)-(keys.has('KeyD')||keys.has('ArrowRight')||touch.has('right')?1:0)};
+}
+$('#start-drive').onclick=startDriving;$('#return-garage').onclick=returnGarage;$('#garage-nav').onclick=returnGarage;
+$('#preview-cabin').onclick=()=>{cabin=!cabin;lookX=lookY=0;updatePreview();};
+$$('[data-filter]').forEach(b=>b.onclick=()=>{$$('[data-filter]').forEach(x=>x.classList.toggle('selected',x===b));renderCards(b.dataset.filter);});
+$('#reset-car').onclick=()=>{state=createState();state.rpm=specs.idle;cruise=false;lookX=lookY=0;resetInputs();updateDirection();updateCruise();notify('已返回出发点');};
+$('#pause-button').onclick=()=>setPaused(!paused);$('#resume-button').onclick=()=>{setPaused(false);startAudio();};
+$('#cruise-button').onclick=()=>{if(paused)return;if(state.direction!==1){notify('请先切换到 D 挡');return;}cruise=!cruise;updateCruise();if(cruise)notify('巡航已启用，方向仍由你控制；刹车可取消');};
+$$('[data-direction]').forEach(b=>b.onclick=()=>direction(Number(b.dataset.direction)));
+$('#sound-toggle').onclick=()=>{sound=!sound;updateSoundLabel();saveSettings();if(sound)startAudio();};
+const openDialog=id=>{if(mode==='drive')setPaused(true,'关闭窗口后，点击继续驾驶');$(id).showModal();};
+$('#guide-open').onclick=()=>openDialog('#guide-dialog');$('#about-open').onclick=$('#sources-open').onclick=()=>openDialog('#about-dialog');$('#settings-open').onclick=()=>openDialog('#settings-dialog');
+$$('.close-dialog').forEach(b=>b.onclick=()=>b.closest('dialog').close());$$('dialog').forEach(d=>d.addEventListener('click',e=>{if(e.target===d){const r=d.getBoundingClientRect();if(e.clientX<r.left||e.clientX>r.right||e.clientY<r.top||e.clientY>r.bottom)d.close();}}));
+$('#quality').onchange=e=>{quality=e.target.value;resize();renderer.shadowMap.enabled=quality!=='low';renderer.shadowMap.needsUpdate=true;saveSettings();};
+$('#fov').oninput=e=>{fov=Number(e.target.value);$('#fov-value').textContent=fov+'°';saveSettings();};
+$('#seat-height').oninput=e=>{seat=Number(e.target.value)/100;$('#seat-value').textContent=seat?Math.round(seat*100)+' cm':'标准';saveSettings();};
+$('#volume').oninput=e=>{volume=Number(e.target.value)/100;saveSettings();};
+const handled=['KeyW','KeyA','KeyS','KeyD','ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Space','KeyQ','KeyE','KeyC','KeyR','KeyP','Escape'];
+addEventListener('keydown',e=>{
+ if($('dialog[open]')||['INPUT','SELECT','TEXTAREA'].includes(e.target.tagName))return;
+ if((mode==='drive'||cabin)&&handled.includes(e.code))e.preventDefault();
+ if(e.code==='KeyC'){lookX=lookY=0;return;}
+ if(mode!=='drive')return;
+ if(e.code==='KeyP'||e.code==='Escape'){if(!e.repeat)setPaused(!paused);return;}
+ if(e.code==='KeyR'){if(!e.repeat)direction(state.direction<0?1:-1);return;}
+ if(!paused)keys.add(e.code);
+});
+addEventListener('keyup',e=>keys.delete(e.code));addEventListener('blur',()=>{resetInputs();if(mode==='drive')setPaused(true,'窗口已失去焦点，车辆已暂停');});
+document.addEventListener('visibilitychange',()=>{if(document.hidden&&mode==='drive')setPaused(true,'页面已切换，车辆已暂停');});
+$$('[data-control]').forEach(b=>{b.addEventListener('pointerdown',e=>{e.preventDefault();if(paused)return;b.setPointerCapture(e.pointerId);touch.add(b.dataset.control);});for(const type of ['pointerup','pointercancel','lostpointercapture'])b.addEventListener(type,()=>touch.delete(b.dataset.control));});
+let drag=null;
+$('#viewport').addEventListener('pointerdown',e=>{drag={x:e.clientX,y:e.clientY,id:e.pointerId};renderer.domElement.setPointerCapture(e.pointerId);});
+$('#viewport').addEventListener('pointermove',e=>{if(!drag||paused)return;const dx=e.clientX-drag.x,dy=e.clientY-drag.y;drag.x=e.clientX;drag.y=e.clientY;if(mode==='drive'||cabin){lookX=clamp(lookX-dx*.004,-1.5,1.5);lookY=clamp(lookY-dy*.003,-.5,.45);}else orbit-=dx*.008;});
+for(const name of ['pointerup','pointercancel'])$('#viewport').addEventListener(name,()=>drag=null);
+$('#viewport').addEventListener('wheel',e=>{if(mode==='garage'&&!cabin){e.preventDefault();zoom=clamp(zoom+e.deltaY*.0006,.65,1.4);}},{passive:false});
+function resize(){if(!renderer)return;renderer.setPixelRatio(Math.min(devicePixelRatio,quality==='low'?1:quality==='high'?2:1.5));renderer.setSize(innerWidth,innerHeight);camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();}
+const localEye=new THREE.Vector3(),target=new THREE.Vector3();
+function moveCamera(time){
+ if(!vehicle)return;
+ if(mode==='garage'&&!cabin){
+  const angle=orbit+(reducedMotion||drag?0:Math.sin(time*.08)*.045),dist=(innerWidth<761?15.5:8.3)*zoom;
+  camera.fov=38;camera.position.set(Math.sin(angle)*dist,(innerWidth<761?4.2:2.8)*zoom,-Math.cos(angle)*dist);camera.lookAt(0,.62,0);camera.clearViewOffset();
+  if(innerWidth>760)camera.setViewOffset(innerWidth,innerHeight,-innerWidth*.16,innerHeight*.055,innerWidth,innerHeight);
+  else camera.setViewOffset(innerWidth,innerHeight,0,innerHeight*.095,innerWidth,innerHeight);
+ }else{
+  camera.clearViewOffset();camera.fov=fov;localEye.copy(vehicle.eye);localEye.y+=seat;
+  localEye.applyAxisAngle(THREE.Object3D.DEFAULT_UP,state.yaw);camera.position.copy(vehicle.root.position).add(localEye);
+  const side=keys.has('KeyQ')?1.05:keys.has('KeyE')?-1.05:0;
+  const gaze=state.yaw+lookX+side,pitch=lookY-.025-clamp(state.acceleration*.0018,-.015,.025);
+  target.set(-Math.sin(gaze)*Math.cos(pitch),Math.sin(pitch),-Math.cos(gaze)*Math.cos(pitch));camera.lookAt(camera.position.clone().add(target));
+  camera.rotateZ(clamp(-state.lateral*.002,-.016,.016));
+ }
+ camera.updateProjectionMatrix();
+}
+const map=$('#minimap').getContext('2d');
+function drawMap(){
+ const w=260,h=190,scale=.38;map.clearRect(0,0,w,h);map.fillStyle='#24332e';map.fillRect(0,0,w,h);map.save();map.translate(w/2,h/2);map.scale(scale,scale);map.translate(-state.x,-state.z);
+ map.fillStyle='#314037';for(let ix=0;ix<6;ix++)for(let iz=0;iz<6;iz++)map.fillRect(STREETS[ix]+13,STREETS[iz]+13,54,54);
+ map.strokeStyle='#607465';map.lineWidth=2;for(const v of STREETS){map.beginPath();map.moveTo(v,-285);map.lineTo(v,285);map.moveTo(-285,v);map.lineTo(285,v);map.stroke();}
+ map.fillStyle='#436265';map.fillRect(302,-700,700,1400);map.strokeStyle='#b8a787';map.lineWidth=4;map.beginPath();map.moveTo(0,160);map.lineTo(0,-160);map.lineTo(160,-160);map.stroke();
+ map.restore();map.save();map.translate(w/2,h/2);map.rotate(-state.yaw);map.fillStyle='#e7bb85';map.beginPath();map.moveTo(0,-9);map.lineTo(6,7);map.lineTo(0,4);map.lineTo(-6,7);map.closePath();map.fill();map.restore();
+}
+function updateHUD(i){
+ $('#speed').textContent=String(Math.round(Math.abs(state.speed)*3.6)).padStart(3,'0');$('#rpm').textContent=Math.round(state.rpm/10)*10;$('#gear-number').textContent=state.direction===0?'空挡':state.direction<0?'倒挡':state.gear+' 挡';$('#rpm-fill').style.width=Math.min(100,state.rpm/specs.redline*100)+'%';$('#throttle-fill').style.width=i.throttle*100+'%';$('#brake-fill').style.width=i.brake*100+'%';$('#distance').textContent=(state.distance/1000).toFixed(2)+' km';$('#road-name').textContent=Math.abs(state.x)<12?'滨海大道':state.x>200?'港湾环路':'中央街区';drawMap();
+}
+let lastCollision=0;
+function animate(timestamp){
+ requestAnimationFrame(animate);if(!renderer)return;
+ const dt=lastTime?Math.min((timestamp-lastTime)/1000,.1):0;lastTime=timestamp;
+ if(vehicle&&mode==='drive'){
+  const controls=input();state.throttle=controls.throttle;state.brake=controls.brake;
+  if(!paused){accumulator+=dt;while(accumulator>=1/120){step(state,controls,specs,1/120,city.blocked);accumulator-=1/120;if(state.collision&&timestamp-lastCollision>2500){lastCollision=timestamp;cruise=false;updateCruise();notify('前方有障碍。可挂 R 挡后退，或重置车辆。');}}vehicle.root.position.set(state.x,0,state.z);vehicle.root.rotation.y=state.yaw;vehicle.update(state,dt);city.follow(state.x,state.z);}
+  uiTime+=dt;if(uiTime>.075){updateHUD(controls);uiTime=0;}
+  if(audioSource&&audioGain){audioSource.playbackRate.setTargetAtTime(clamp(state.rpm/3000,.45,2.5),audioContext.currentTime,.05);audioGain.gain.setTargetAtTime(sound&&!paused?volume*(.3+controls.throttle*.5):0,audioContext.currentTime,.08);}
+ }
+ moveCamera(timestamp/1000);renderer.render(mode==='drive'?city.scene:garage,camera);
+}
+try{
+ renderer=new THREE.WebGLRenderer({antialias:true,powerPreference:'high-performance'});renderer.outputColorSpace=THREE.SRGBColorSpace;renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=.95;renderer.shadowMap.enabled=quality!=='low';renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+ $('#viewport').append(renderer.domElement);renderer.domElement.addEventListener('webglcontextlost',e=>{e.preventDefault();if(mode==='drive')setPaused(true);fatal(new Error('图形渲染已中断，请关闭其他占用显卡的页面后重新载入。'));});
+ garage=createGarage();garage.environment=makeEnvironment(renderer);garage.environmentIntensity=.65;camera=new THREE.PerspectiveCamera(38,innerWidth/innerHeight,.025,1400);resize();addEventListener('resize',resize);renderCards();selectCar(selected);requestAnimationFrame(animate);
+}catch(error){fatal(new Error('无法启动三维画面。请使用支持 WebGL 2 的浏览器并开启硬件加速。'+error.message));}

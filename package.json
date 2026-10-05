@@ -1,1 +1,10 @@
-{"name":"scene-companion","version":"0.1.0","private":true,"type":"module","scripts":{"start":"node --env-file-if-exists=.env server.mjs","dev":"node --env-file-if-exists=.env server.mjs","test":"node --test"},"engines":{"node":">=22"}}
+{
+  "name":"openroad",
+  "version":"0.2.0",
+  "private":true,
+  "description":"A browser-first city driving experience with community vehicle models.",
+  "license":"GPL-3.0-only",
+  "type":"module",
+  "scripts":{"start":"node server.mjs","dev":"node server.mjs","test":"node --test test/*.test.mjs"},
+  "engines":{"node":">=22"}
+}

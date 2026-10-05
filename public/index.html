@@ -1,13 +1,53 @@
-<!doctype html><html lang="zh-CN"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#111c21"><meta name="description" content="上传一张人物图和场景图，进入属于你们的互动世界。"><title>彼境 · Scene Companion</title><link rel="stylesheet" href="/style.css"><script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/","@sparkjsdev/spark":"https://sparkjs.dev/releases/spark/2.3.1/spark.module.js"}}</script></head><body>
-<header><a class="brand" href="/" aria-label="彼境首页"><span class="brandmark">◈</span> 彼境 <span class="en">SCENE COMPANION</span></a><nav><button id="home" class="text active">创造世界</button><button id="memories" class="text">我们的记忆 <span id="memoryCount">0</span></button></nav><button id="help" class="round" aria-label="使用帮助">?</button></header>
-<main id="studio"><section class="intro"><div><p class="eyebrow">A PLACE FOR THE TWO OF YOU</p><h1>让相遇，<span>有一个世界。</span></h1><p class="sub">带上一个人，走进一处风景。剩下的故事，由你们一起发生。</p></div><span class="edition">INTERACTIVE WORLD<br>EXPERIMENT 001 / 3D</span></section>
-<section class="workspace"><div class="creation"><div class="sectiontitle"><span>创造你们的世界</span><span class="small">01 — 03</span></div>
-<label class="upload" id="personDrop"><input type="file" id="personFile" accept="image/png,image/jpeg,image/webp"><span class="uploadicon" id="personIcon">♙</span><span><b>01 &nbsp; 邀请一位旅伴</b><small id="personHint">清晰全身人物图 · PNG / JPG / WebP</small></span><span class="plus">＋</span></label>
-<label class="upload" id="sceneDrop"><input type="file" id="sceneFile" accept="image/png,image/jpeg,image/webp"><span class="uploadicon" id="sceneIcon">▧</span><span><b>02 &nbsp; 选择相遇的地方</b><small id="sceneHint">上传场景图片 · 生成可探索的 3D 世界</small></span><span class="plus">＋</span></label>
-<div class="details"><label for="name">03 &nbsp; TA 叫什么名字？</label><input id="name" maxlength="60" value="小屿" placeholder="给旅伴取个名字"><details><summary>赋予 TA 一点性格 <span>可选</span></summary><label for="persona">人物设定</label><textarea id="persona" maxlength="2000">温暖、好奇、喜欢旅行与摄影。愿意倾听，也会分享有趣的观察。</textarea><label for="place">场景描述</label><input id="place" value="落日海边会客厅" maxlength="1000"></details></div>
-<button id="start" class="primary">开始模拟 <span>✧</span></button><p class="privacy" id="modeHint">图片保存在此浏览器；开始生成时发送至重建服务。</p><div id="progress" role="status" hidden></div></div>
-<div class="worldpreview"><div class="previewimage" id="previewImage"></div><div class="previewtop"><span class="glasslabel">视觉概念图 · 非模拟结果</span><span class="glasslabel">落日 · 海边会客厅</span></div><div class="previewbottom"><span class="eyebrow">SOMEWHERE, WITH SOMEONE.</span><h2>下一段故事，<br>从这里开始。</h2><div class="previewfooter"><span>自由探索 &nbsp; / &nbsp; 自然对话 &nbsp; / &nbsp; 共同记忆</span><button id="demo" class="glassbutton">了解生成过程</button></div></div></div></section>
-<div class="footnotes"><span>两张图片。一个可以走进去的故事。</span><span>为好奇心而造 &nbsp; ✧</span></div></main>
-<section id="experience" hidden><canvas id="world" aria-label="可自由探索的 3D 世界" tabindex="0"></canvas><div class="worldtop"><button id="back" class="glassbutton">‹ 返回创作</button><div class="worldtitle"><b id="worldName">落日海边会客厅</b><span id="worldMode">示例 3D 世界</span></div><button id="capture" class="glassbutton">▣ 保存这一刻</button><button id="night" class="glassbutton" aria-label="切换昼夜">☾</button></div><div class="crosshair">＋</div><div class="worldbottom"><div class="controls"><span><kbd>W A S D</kbd> 移动</span><span>拖动视角 · <kbd>Q E</kbd> 升降</span><button id="reset" class="text">回到旅伴身边</button></div><div class="actions"><button data-action="wave">✋<span>打个招呼</span></button><button data-action="follow">♧<span>一起走走</span></button><button data-action="gift">♡<span>送小礼物</span></button><button data-action="explore">⌖<span>探索这里</span></button></div></div><div class="mobilemove"><button data-move="w" aria-label="向前">↑</button><div><button data-move="a" aria-label="向左">←</button><button data-move="s" aria-label="向后">↓</button><button data-move="d" aria-label="向右">→</button></div></div>
-<aside class="chat"><div class="chathead"><div class="avatar" id="chatAvatar">屿</div><div><b id="chatName">小屿</b><small id="chatStatus">在这里，陪你一起</small></div><button id="voice" class="round" aria-label="打开朗读" aria-pressed="false">♫</button></div><div class="messages" id="messages" aria-live="polite"></div><div id="suggestions"><button>你喜欢这里吗？</button><button>我们一起去探险吧</button></div><form id="chatForm"><input id="message" aria-label="发送给旅伴的消息" placeholder="有什么想对 TA 说的？" maxlength="4000" autocomplete="off"><button id="send" aria-label="发送消息">↑</button></form><p class="chatnote" id="chatMode">AI 角色对话</p></aside></section>
-<dialog id="modal"><button id="closeModal" class="round close" aria-label="关闭">×</button><div id="modalContent"></div></dialog><div id="toast" role="status" hidden></div><script type="module" src="/app.js"></script></body></html>
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#202626">
+<title>OpenRoad — 把向往，开上街头</title><meta name="description" content="选择经典车型，在同一座海港城市中第一人称驾驶。浏览器直接体验，无需下载游戏。">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23e5a45f'/%3E%3Cpath d='M22 54L28 10M42 54L36 10M32 47V38M32 29V20' stroke='%23202626' stroke-width='4'/%3E%3C/svg%3E"><link rel="stylesheet" href="./style.css">
+</head>
+<body>
+<div id="viewport" aria-label="三维车辆预览与驾驶场景"></div>
+<header class="topbar">
+  <a class="wordmark" href="./" aria-label="OpenRoad 首页"><span class="roadmark"><i></i><i></i><i></i></span>OPENROAD<span class="beta">EXPERIENCE 01</span></a>
+  <nav><button id="garage-nav" class="nav active">车库</button><button id="guide-open" class="nav">驾驶指南</button><button id="about-open" class="nav">关于项目 <span>↗</span></button></nav>
+  <div class="top-right"><span class="online-dot"></span><span id="header-status">浏览器里的驾驶时光</span><button id="settings-open" class="icon-button" title="设置" aria-label="设置">⚙</button></div>
+</header>
+<main id="garage" class="garage-ui">
+  <section class="car-story">
+    <p class="eyebrow"><span class="line"></span> A CITY. YOUR NEXT DRIVE.</p>
+    <div class="car-brand" id="car-brand">TOYOTA</div>
+    <h1 id="car-name">Celica<br>GT-Four</h1>
+    <p class="car-era" id="car-era">第六代 · ST205</p>
+    <p class="description" id="description">四轮驱动，涡轮扭矩。沿着海岸线，重新认识九十年代的驾驶乐趣。</p>
+    <div class="specs"><div><strong id="spec-power">—</strong><span>kW · 模拟功率</span></div><div><strong id="spec-torque">—</strong><span>Nm · 峰值扭矩</span></div><div><strong id="spec-drive">AWD</strong><span>驱动形式</span></div></div>
+    <button id="start-drive" class="primary" disabled><span id="start-label">准备车辆资源…</span><span class="button-arrow">↗</span></button>
+    <p class="no-install">无需安装 · 无需 API 密钥 · 即点即开</p>
+  </section>
+  <div class="preview-tools"><span class="live-pill"><span class="online-dot"></span> REAL-TIME 3D</span><div class="preview-label"><span id="preview-mode">外观视角</span><span class="separator">/</span><button id="preview-cabin">查看内饰 ↗</button></div></div>
+  <div class="scene-caption"><span class="drag-icon">↔</span><span id="drag-hint">拖动旋转 · 滚轮缩放</span><span id="model-status" role="status">正在载入模型</span></div>
+  <div class="car-paint"><span>车身涂装</span><div id="paint-options"></div></div>
+  <section class="collection">
+    <div class="collection-heading"><div><span class="eyebrow">THE COLLECTION</span><span class="collection-count">精选车库 <b>03</b></span></div><div class="filter-tabs" role="group" aria-label="车型分类"><button class="selected" data-filter="all">全部车型</button><button data-filter="sports">运动跑车</button><button data-filter="daily">日常经典</button></div><span class="collection-note">一座城市，三种驾驶性格。</span></div>
+    <div id="car-list" class="car-list"></div>
+  </section>
+  <footer class="garage-footer"><span><i class="location-dot"></i> HARBOR CITY <span class="muted">/</span> 海港自由驾驶</span><button id="sources-open">模型与数据来源 ↗</button><span class="muted">BUILT FOR THE JOY OF DRIVING.</span></footer>
+</main>
+<section id="drive-ui" class="drive-ui" hidden>
+  <div class="drive-top"><button id="return-garage" class="glass-button">← 返回车库</button><div class="route-label"><span class="online-dot"></span> 海港城 <span>/ 自由驾驶</span></div><div class="drive-tools"><button id="sound-toggle" class="glass-button" aria-pressed="true">声音 开</button><button id="reset-car" class="glass-button">重置车辆</button><button id="pause-button" class="glass-button">暂停</button></div></div>
+  <div class="drive-badge"><span id="drive-brand">TOYOTA</span><strong id="drive-name">Celica GT-Four</strong><small id="drive-cabin">右舵 · 第一人称</small></div>
+  <div class="look-hint">按住鼠标拖动环顾 · Q / E 看左右 · C 回正</div>
+  <div class="drive-bottom">
+    <div class="minimap-card"><div class="map-head"><span>HARBOR CITY</span><span>N ↑</span></div><canvas id="minimap" width="260" height="190" aria-label="车辆实时位置地图"></canvas><div class="map-foot"><span id="road-name">滨海大道</span><span id="distance">0.00 km</span></div></div>
+    <div class="drive-instructions"><div><kbd>W</kbd><kbd>S</kbd><span>油门 / 刹车</span></div><div><kbd>A</kbd><kbd>D</kbd><span>转向</span></div><div><kbd>空格</kbd><span>手刹</span></div><button id="cruise-button" aria-pressed="false">启用 35 km/h 巡航 <span>→</span></button></div>
+    <div class="telemetry"><div class="gear-selector" aria-label="挡位选择"><button data-direction="-1">R</button><button data-direction="0">N</button><button data-direction="1" class="selected">D</button><span id="gear-number">1</span></div><div class="speed"><strong id="speed">000</strong><span>km/h</span></div><div class="rpm-scale"><i id="rpm-fill"></i></div><div class="telemetry-meta"><span><b id="rpm">900</b> RPM</span><span>自动换挡</span></div><div class="pedal-bars"><span>THR <i><b id="throttle-fill"></b></i></span><span>BRK <i><b id="brake-fill"></b></i></span></div></div>
+  </div>
+  <div class="touch-controls"><div><button data-control="left" aria-label="向左转">←</button><button data-control="right" aria-label="向右转">→</button></div><div><button data-control="brake" class="touch-brake">刹车</button><button data-control="throttle" class="touch-throttle">油门</button></div></div>
+  <div id="pause-overlay" class="pause-overlay" hidden><p class="eyebrow">TAKE A BREATH</p><h2>停一会，也很好。</h2><p id="pause-reason">驾驶已暂停</p><button id="resume-button" class="primary">继续驾驶 <span>→</span></button></div>
+</section>
+<div id="toast" role="status" hidden></div>
+<div id="fatal" class="fatal" hidden><h2>场景未能载入</h2><p id="fatal-message"></p><button onclick="location.reload()" class="primary">重新载入</button></div>
+<dialog id="guide-dialog"><button class="close-dialog" aria-label="关闭">×</button><p class="eyebrow">YOUR FIRST DRIVE</p><h2>选好车，就出发。</h2><p>在车库旋转查看车身，或进入座舱。点击「开始驾驶」后，车辆以 D 挡停在同一条城市道路上。</p><div class="guide-grid"><span><kbd>W / ↑</kbd> 持续踩油门</span><span><kbd>S / ↓</kbd> 踩刹车</span><span><kbd>A D / ← →</kbd> 转向</span><span><kbd>空格</kbd> 手刹</span><span><kbd>Q / E</kbd> 左右环顾</span><span><kbd>C</kbd> 视线回正</span><span><kbd>R</kbd> 停稳后切换倒挡</span><span><kbd>Esc / P</kbd> 暂停驾驶</span></div><p>点击 R / N / D 切换方向。巡航只负责维持车速，仍需你操控方向和刹车。触屏设备可使用下方方向和踏板按钮。</p><p class="fine">城市采用右侧通行。当前为无行人、无动态交通的自由练习场景。</p></dialog>
+<dialog id="settings-dialog"><button class="close-dialog" aria-label="关闭">×</button><p class="eyebrow">MAKE IT YOURS</p><h2>驾驶设置</h2><label>画面质量<select id="quality"><option value="low">流畅 · 关闭阴影</option><option value="medium" selected>标准 · 推荐</option><option value="high">高画质 · 更高分辨率</option></select></label><label>座舱视野 <output id="fov-value">70°</output><input id="fov" type="range" min="55" max="95" value="70"></label><label>驾驶坐姿 <output id="seat-value">标准</output><input id="seat-height" type="range" min="-10" max="14" value="0"></label><label>引擎音量<input id="volume" type="range" min="0" max="100" value="18"></label><p class="fine">设置保存在当前浏览器。画面卡顿时可选择「流畅」。</p></dialog>
+<dialog id="about-dialog"><button class="close-dialog" aria-label="关闭">×</button><p class="eyebrow">OPEN SOURCE, OPEN ROADS.</p><h2>从一座城开始。</h2><p>OpenRoad 是一个直接在浏览器里驾驶的开源实验。首批精选 3 辆车，使用各自的车身、座舱模型和车辆配置，不同车型有不同质量、扭矩曲线、齿比、轴距和转向响应。</p><div class="source-row"><a href="https://github.com/fd-firstdrive/firstdrive-data" target="_blank" rel="noreferrer">FirstDrive / VDrift 车辆资源 ↗</a><span>模型 · 贴图 · 声音 · 动力参数 / GPL-3.0</span></div><div class="source-row"><a href="https://github.com/VDrift/vdrift" target="_blank" rel="noreferrer">VDrift ↗</a><span>车辆数据格式与模拟实现参考</span></div><div class="source-row"><a href="https://github.com/swift502/Sketchbook" target="_blank" rel="noreferrer">Sketchbook ↗</a><span>浏览器车辆操控、转向平滑与视角交互参考</span></div><div class="source-row"><a href="https://github.com/mrdoob/three.js" target="_blank" rel="noreferrer">Three.js ↗</a><span>实时三维渲染 / MIT</span></div><p class="fine">车辆为社区模型，部分座舱细节较简化；Celica、Mini 的可动仪表为自制适配，方向盘为资源库共用模型；当前采用平面道路动力学近似，并非厂商认证的数字孪生或完整 VDrift 仿真。显示的参数来自社区 .car 配置，未标注为原厂实测值。车型名称用于识别资源，与汽车品牌无关联。</p><a class="credits-link" href="./CREDITS.txt" target="_blank">完整作者署名与许可 →</a></dialog>
+<script type="module" src="./app.js"></script>
+</body></html>
