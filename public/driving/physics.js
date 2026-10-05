@@ -28,10 +28,10 @@ export function step(s,input,p,dt,world=null){
  const throttle=s.pedalThrottle*(s.stabilityActive?clamp(1-(Math.abs(slip)-.10)*3.2,.2,1):1);
  s.throttle=throttle;s.brake=s.brakePressure;
  const condition=performance(s.damage),speedFactor=1/(1+(speed/22)**1.5),intent=clamp(input.steer||0,-1,1);
- // Road mode smooths the player's input separately from the rack. A yaw-rate
- // damping term prevents slip correction from making the car fishtail on release.
+ // A key press/reversal should bite immediately; release has its own damping.
+ // Do not stack slow input and rack filters, which swallow short A/D taps.
  const returning=Math.abs(intent)<Math.abs(s.steerIntent||0),reversing=intent*(s.steerIntent||0)<0;
- s.steerIntent=intent+((s.steerIntent||0)-intent)*Math.exp(-dt/(returning||reversing?.075:.085));
+ s.steerIntent=intent+((s.steerIntent||0)-intent)*Math.exp(-dt/(returning?.07:reversing?.025:.018));
  const staticFront=p.mass*9.81*(p.rearAxle||p.wheelbase*.5)/p.wheelbase,staticRear=p.mass*9.81-staticFront;
  const axleBalance=clamp(Math.min((s.frontLoad||staticFront)/staticFront,(s.rearLoad||staticRear)/staticRear),.5,1);
  // Use more of the dry-road steering range before intervening. Heavy braking
@@ -43,12 +43,27 @@ export function step(s,input,p,dt,world=null){
  const steerLimit=assisted?Math.min(p.maxSteer,Math.atan(p.wheelbase*gripAccel/(speed*speed+lowSpeedAllowance))+.012):p.maxSteer*speedFactor;
  const driverSteer=(assisted?s.steerIntent:intent)*steerLimit;
  const targetYaw=clamp(s.speed/p.wheelbase*Math.tan(driverSteer),-gripAccel/Math.max(speed,4),gripAccel/Math.max(speed,4));
- const recovery=clamp((Math.abs(slip)-.06)/.12,0,1),correctionLimit=Math.max(.08,steerLimit*.65,Math.min(.45,Math.abs(slip)*1.5));
- const travelSign=s.speed<0?-1:1;
- const countersteer=assisted&&!handbrake?clamp((speed-3)/4,0,1)*clamp(travelSign*(-slip*(.1+recovery*.8)+(targetYaw-s.yawRate)*.3),-correctionLimit,correctionLimit):0;
- const steerTarget=clamp(driverSteer+countersteer,-p.maxSteer,p.maxSteer)*condition.steerResponse+condition.steerBias;
- const rate=(assisted?(returning||reversing?3.8:2.8):(Math.abs(steerTarget)<Math.abs(s.steer)?1.9:1.15))/(1+speed/28);
- s.steer+=clamp((steerTarget-s.steer)*(1-Math.exp(-dt*(assisted?18:9))),-rate*dt,rate*dt);
+ // Holding a turn needs some steady tire slip. Compensate a bounded part
+ // of it only while yaw agrees with the driver; release and direction changes
+ // retain the full recovery controller, rather than treating a spin as normal.
+ const mu=(p.tireGrip||1.08)*condition.grip*(input.offRoad?.5:1);
+ const frontLoad=s.frontLoad||staticFront,rearLoad=s.rearLoad||staticRear;
+ const frontLimit=mu*frontLoad*clamp(1-.08*(frontLoad/staticFront-1),.8,1.1),rearLimit=mu*rearLoad*clamp(1-.08*(rearLoad/staticRear-1),.8,1.1);
+ const frontShare=(p.rearAxle||p.wheelbase*.5)/p.wheelbase;
+ const tireSlip=(yaw,share,limit,stiffness)=>Math.atanh(clamp(p.mass*s.speed*yaw*share/limit,-.92,.92))/stiffness;
+ const blend=assisted&&!handbrake&&s.speed>0?clamp((speed-8)/8,0,1)*(1-s.brakePressure)*.6:0;
+ const feedForward=(tireSlip(targetYaw,frontShare,frontLimit,12)-tireSlip(targetYaw,1-frontShare,rearLimit,14.4))*blend;
+ const steadyYaw=Math.sign(targetYaw)*clamp(s.yawRate*Math.sign(targetYaw),0,Math.abs(targetYaw));
+ const rearReference=tireSlip(steadyYaw,1-frontShare,rearLimit,14.4);
+ const expectedSlip=Math.atan(Math.tan(rearReference)-steadyYaw*(p.rearAxle||p.wheelbase*.5)/Math.max(speed,4))*blend;
+ const slipError=slip-expectedSlip;
+ const recovery=clamp((Math.abs(slipError)-.06)/.12,0,1),correctionLimit=Math.max(.08,steerLimit*.65,Math.min(.45,Math.abs(slipError)*1.5));
+ // Stronger neutral-input yaw damping stops a sharper turn from rebounding.
+ const travelSign=s.speed<0?-1:1,yawDamping=Math.abs(intent)<.01?1.2:.3;
+ const countersteer=assisted&&!handbrake?clamp((speed-3)/4,0,1)*clamp(travelSign*(-slipError*(.1+recovery*.8)+(targetYaw-s.yawRate)*yawDamping),-correctionLimit,correctionLimit):0;
+ const steerTarget=clamp(driverSteer+feedForward+countersteer,-p.maxSteer,p.maxSteer)*condition.steerResponse+condition.steerBias;
+ const rate=assisted?(returning?3.8:6)/(1+speed/40):(Math.abs(steerTarget)<Math.abs(s.steer)?2.8:3)/(1+speed/40);
+ s.steer+=clamp((steerTarget-s.steer)*(1-Math.exp(-dt*(assisted?(returning?18:38):22))),-rate*dt,rate*dt);
  let ratio=(s.direction<0?p.reverse:p.gears[s.gear-1])*p.finalDrive;
  let rpm=speed/p.radius*ratio*60/(2*Math.PI);
  if(s.direction===1&&!s.shift){if(rpm>p.redline*.87&&s.gear<p.gears.length){s.gear++;s.shift=s.shiftDuration=.22;}else if(s.gear>1&&rpm<p.redline*.32){s.gear--;s.shift=s.shiftDuration=.15;}ratio=p.gears[s.gear-1]*p.finalDrive;rpm=speed/p.radius*ratio*60/(2*Math.PI);}

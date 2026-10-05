@@ -71,3 +71,31 @@ test('M4 turns in promptly while partial steering stays progressive',()=>{
  assert.ok(full.s.speed/full.s.yawRate<54,'full steering reaches an appropriately tight radius');
  assert.ok(half.s.yawRate>full.s.yawRate*.35&&half.s.yawRate<full.s.yawRate*.75,'partial steering is not an on/off snap');
 });
+
+test('all cars respond to a 100 ms steering press in both directions and driving modes',()=>{
+ for(const {id,p} of cars)for(const assists of [true,false])for(const kph of [20,50,80,120])for(const direction of [-1,1]){
+  const s=Object.assign(createState(),{speed:kph/3.6});
+  for(let i=0;i<12;i++)step(s,{steer:direction,assists},p,1/120);
+  // Normalize for each car's axle load and yaw inertia: a short press must
+  // produce useful body rotation, not merely animate the steering wheel.
+  const load=p.mass*9.81*p.rearAxle/p.wheelbase+(p.downforce||0)*(kph/3.6)**2*.42;
+  const maximumYaw=load*p.tireGrip*p.frontAxle/p.yawInertia*.1**2/2;
+  assert.ok(s.yaw*direction>maximumYaw*(assists?.5:.38),`${id} ${kph} ${assists}: short press lost in input smoothing`);
+  assert.ok(s.steer*direction>0,`${id}: rack points toward input`);
+ }
+});
+test('all cars promptly reverse the rack when A changes to D or D changes to A',()=>{
+ for(const {id,p} of cars)for(const assists of [true,false])for(const kph of [20,50,80,120])for(const direction of [-1,1]){
+  const s=Object.assign(createState(),{speed:kph/3.6});for(let i=0;i<36;i++)step(s,{steer:direction,assists},p,1/120);
+  const deadline=assists?(kph===20?.15:.06):.25;
+  for(let i=0;i<Math.ceil(deadline*120);i++)step(s,{steer:-direction,assists},p,1/120);
+  assert.ok(s.steer*direction<0,`${id} ${kph} ${assists}: stale opposite steering after input changed`);
+ }
+});
+test('holding throttle and steering remains controllable across the whole collection',()=>{
+ for(const {id,p} of cars)for(const speed of [20,80,160]){
+  const r=drive(p,speed,10,t=>({throttle:1,steer:t<8?1:0}));
+  assert.ok(r.peakSlip<.35&&r.s.speed>0,`${id} ${speed}: full-power corner must not spin`);
+  assert.ok(Math.abs(r.s.yawRate)<.03,`${id}: stable release after a full-power corner`);
+ }
+});
