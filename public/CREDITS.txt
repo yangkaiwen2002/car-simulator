@@ -43,9 +43,14 @@ Sketchbook: https://github.com/swift502/Sketchbook
 Car.ts was studied for browser control patterns, steering smoothing, gear
 transitions and first-person interaction. Its implementation is not bundled.
 The OpenRoad physics solver is original, not the full solver from either project.
-It uses a flat-road bicycle model, torque interpolation, automatic gears,
-aerodynamic drag, rolling resistance and simplified traction/braking limits.
-No full 3D suspension, detailed wheel-slip model, drivetrain elasticity,
+It uses a dynamic two-axle model: axle slip angles, nonlinear lateral forces,
+combined longitudinal/lateral grip, load transfer, yaw inertia, torque interpolation,
+automatic gears, aerodynamic drag/downforce, rolling resistance and graded roads.
+Default assists limit wheel lock at speed, countersteer through tire angles, and
+reduce drive torque to available grip. No path-following or automatic corner braking.
+Service brakes use an idealized ABS limit. Pedal force is progressive; braking cuts
+throttle, including W+S. Grip coefficients and aero are game calibrations.
+No full 3D suspension, wheel rotational inertia/temperature model, drivetrain elasticity,
 manufacturer validation, traffic AI, rollover or soft-body deformation is included.
 An original planar rigid-body contact solver uses SAT manifolds, normal and
 friction impulses, angular momentum, broad-phase hashing and adaptive substeps.
@@ -97,3 +102,55 @@ Widths, surfaces, elevation, barriers and facilities are approximate original sc
 Timing line = input polyline origin; sector boundaries = equal thirds of this
 projected route. These are challenge definitions, not official FIA timing data.
 No association with Formula 1, FIA, circuit owners or vehicle manufacturers.
+
+NEW GLTF VEHICLES (2026-10-05)
+McLaren P1 GTR — "Free McLaren P1 GTR" by ALIEEEN, previously Desiccated_Lemon.
+The downloaded file identifies Desiccated_Lemon in its asset metadata.
+https://sketchfab.com/3d-models/free-mclaren-p1-gtr-d805bec04cf5407fa7c036c20c726d39
+CC BY 4.0: https://creativecommons.org/licenses/by/4.0/
+Public mirror: Nissmo89/Supercar-Vault-3D, models/free_mclaren_p1_gtr.glb
+Git blob SHA: ef15cc1408f32ddc9d69a8879cbbb432f2806f5e. Original GLB preserved.
+
+Lamborghini Revuelto — "Free Lamborghini Revuelto" by ALIEEEN.
+https://sketchfab.com/3d-models/free-lamborghini-revuelto-cf52245eb68f48daa909c7ad2a8deaa3
+CC BY 4.0: https://creativecommons.org/licenses/by/4.0/
+Public mirror: Ev0gs/Portfolio, public/car/ at
+7660afbc9ef88448e19ac7031d855e031a7899e4. Original glTF, buffer, textures and license preserved.
+Adaptations: scene transforms baked at runtime, real-scale normalization, original
+wheel meshes separated by axle/side, paint/glass material changes, camera placement,
+Revuelto steering animation and original-body damage deformation.
+P1 GTR's steering/dashboard are static source artwork, not live factory instruments.
+Revuelto's instruments are source artwork; use HUD for live speed/RPM. Mirrors do
+not render rear views. Both use an EF/CO-derived placeholder engine recording.
+These assets are separately licensed as CC BY 4.0, not relicensed as GPL.
+
+The two new .car files are original OpenRoad simulation tuning, NOT VDrift or
+manufacturer test data. Powertrain layout, nominal power, displacement and gear
+count were checked against manufacturer pages/manuals. Torque curves, ratios,
+masses including fluids/driver, inertia, tire grip, brakes and downforce are
+approximate game settings. Hybrid power is approximated by one torque curve;
+there is no battery, energy deployment, regenerative-braking or DRS model.
+Manufacturer references:
+https://cars.mclaren.com/gl_en/ultimate-models/mclaren-p1-gtr
+https://mclaren-web.s3.eu-west-2.amazonaws.com/files/McLaren%20P1GTR%20-%2012Q0143RP01%20-%20Bookmark.pdf
+https://www.lamborghini.com/en-en/models/revuelto-models/revuelto
+The displayed torque is simulation configuration torque, not measured combined hybrid torque.
+
+NORDSCHLEIFE
+Track geometry © OpenTrackData, derived from © OpenStreetMap contributors (ODbL).
+Elevation: AWS Terrain Tiles. Source: https://github.com/chendo/opentrackdata
+Original path: data/tracks/nordschleife.geojson. The source commit is embedded in
+circuits/nordschleife.geojson. This openly downloadable derived GeoJSON is ODbL 1.0;
+see circuits/NORDSCHLEIFE-LICENSE.txt and NORDSCHLEIFE-ATTRIBUTION.txt.
+Adaptation: extracted the ordered lap_profile; removed consecutive duplicates;
+projected horizontal coordinates without rescaling. Terrain elevations are smoothed
+at runtime over a 40 m radius for drivable grades, not laser-scanned road heights.
+The projected centerline is about 20.752 km; UI shows the official nominal 20.832 km.
+https://www.nuerburgring.de/info/nuerburgring/race-tracks/nordschleife
+The challenge line is the dataset origin near Hatzenbach, NOT the official T13 line.
+Width (9 m), scenery, guardrails and equal-third splits are game approximations.
+No surveyed bank angle, Karussell banking, suspension motion or airborne dynamics.
+
+THREE.JS ADDITIONAL MODULES
+GLTFLoader.js and BufferGeometryUtils.js from mrdoob/three.js r180, MIT.
+Only local import paths changed. License remains vendor/THREE-LICENSE.txt.

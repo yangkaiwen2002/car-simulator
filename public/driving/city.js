@@ -14,7 +14,7 @@ function facade(kind,seed){
  if(rnd()>.45){c.fillStyle='#bbc0b652';c.fillRect(x+2,27,8,70);}c.fillStyle=kind===4?'#b9c4c4':'#ded6c2';c.fillRect(x+18,25,2,74);c.fillRect(x,58,39,2);c.fillRect(x-3,100,46,4);c.fillStyle='#151c2633';c.fillRect(x-3,104,46,6);}
  });
 }
-function foliage(){return canvasTexture(256,256,c=>{const rnd=random(765);for(let i=0;i<2100;i++){const x=rnd()*256,y=rnd()*256,dx=(x-128)/112,dy=(y-130)/118;if(dx*dx+dy*dy>1||rnd()<.12)continue;c.fillStyle=['#809449','#60793d','#a3ad60','#486836','#8c9f51'][Math.floor(rnd()*5)];c.beginPath();c.ellipse(x,y,3+rnd()*5,2+rnd()*3,rnd()*3,0,Math.PI*2);c.fill();}});}
+export function foliage(){return canvasTexture(256,256,c=>{const rnd=random(765);for(let i=0;i<2100;i++){const x=rnd()*256,y=rnd()*256,dx=(x-128)/112,dy=(y-130)/118;if(dx*dx+dy*dy>1||rnd()<.12)continue;c.fillStyle=['#809449','#60793d','#a3ad60','#486836','#8c9f51'][Math.floor(rnd()*5)];c.beginPath();c.ellipse(x,y,3+rnd()*5,2+rnd()*3,rnd()*3,0,Math.PI*2);c.fill();}});}
 export function createCity(){
  const scene=new THREE.Scene();scene.background=new THREE.Color('#a8c9e0');scene.fog=new THREE.FogExp2('#b9d0df',.00155);
  const hemi=new THREE.HemisphereLight('#cce5ff','#696448',1.6);scene.add(hemi);

@@ -1,0 +1,38 @@
+OpenTrackData — Data License
+============================
+
+The DATA in this project — every track GeoJSON (data/tracks/, web/data/, and the
+packaged datasets attached to GitHub Releases), together with the derived
+centerlines, track-surface polygons, widths, elevation profiles and corner/sector
+annotations — is made available under the
+
+    Open Database License (ODbL) v1.0
+    https://opendatacommons.org/licenses/odbl/1-0/
+
+You are free to Share (copy, distribute and use), Create (produce works from) and
+Adapt (modify, transform and build upon) this database, as long as you:
+
+  * ATTRIBUTE — attribute OpenTrackData and its upstream sources (see ATTRIBUTION.md);
+  * SHARE-ALIKE — if you publicly use an adapted version of this database, or
+    derive a new database from it, you must also offer that adapted database
+    under ODbL; and
+  * KEEP OPEN — if you redistribute the database, or a works produced from it,
+    with technical measures that restrict access, you must also provide a version
+    without such measures.
+
+Why ODbL (not a permissive/CC license): the track layout geometry is derived from
+OpenStreetMap, which is © OpenStreetMap contributors and licensed under ODbL 1.0.
+ODbL is share-alike, so any published derivative database must remain ODbL. This
+license is inherited, not chosen — publishing this data under a non-share-alike
+license (e.g. CC-BY, MIT, public domain) would violate OSM's terms.
+
+Individual imagery/elevation sources used to *measure* or *drape* the data carry
+their own attribution requirements; producing factual measurements from imagery is
+not redistribution of that imagery. See ATTRIBUTION.md for the full source list and
+the per-region license verdicts in docs/SOURCE_REGISTRY.md.
+
+Full license text: https://opendatacommons.org/licenses/odbl/1-0/
+Human-readable summary: https://opendatacommons.org/licenses/odbl/summary/
+
+The software (pipeline + viewer) is licensed separately under MIT — see LICENSE.
+

@@ -1,0 +1,52 @@
+# Attribution
+
+OpenTrackData combines several open data sources. If you use this dataset, you must
+credit **OpenTrackData** and the upstream sources below. The data is licensed under
+**ODbL 1.0** (see [`LICENSE-DATA`](LICENSE-DATA)); the code under **MIT** (see
+[`LICENSE`](LICENSE)).
+
+A short, sufficient credit line:
+
+> Track geometry © OpenTrackData, derived from © OpenStreetMap contributors (ODbL).
+> Elevation: AWS Terrain Tiles. See opentrackdata attribution for imagery sources.
+
+## Sources
+
+### Layout geometry — the dataset foundation
+- **© OpenStreetMap contributors**, licensed under **ODbL 1.0**.
+  <https://www.openstreetmap.org/copyright>
+  All track centerlines, surfaces and connectors are derived from OSM `highway=raceway`
+  ways, circuit/route relations, and (for public-road circuits) named public roads.
+  Because OSM is share-alike, this derived database is also ODbL.
+
+### Elevation
+- **AWS Terrain Tiles** (Terrarium-encoded), a fused open elevation product
+  (SRTM, USGS 3DEP, GMTED, and others). Open, attribution requested.
+  <https://registry.opendata.aws/terrain-tiles/>
+
+### Ortho imagery used to *measure* track width
+Imagery below is used to derive **factual width measurements** (and as display basemaps
+in the viewer), not redistributed as imagery. Per-region open sources:
+
+| Region | Source | License | Used for |
+|---|---|---|---|
+| USA | USGS **NAIP** / USGSImageryOnly | U.S. public domain | width + viewer basemap |
+| France | **IGN Géoplateforme** ORTHOPHOTOS | Etalab / Licence Ouverte | width + basemap |
+| Spain | **PNOA** (IGN España) | CC-BY 4.0 | width + basemap |
+| Austria | **basemap.at** Orthofoto | CC-BY 4.0 | width + basemap |
+| Japan | **GSI** seamlessphoto | GSI terms (attribution; per-dataset check) | width + basemap |
+| Australia (NSW) | **NSW Spatial Services** Imagery | CC-BY 4.0 ("DCS Spatial Services") | width + basemap |
+
+Some legacy width values were measured from **Esri World Imagery** (display-only under
+Esri's terms; the measurements are factual values, the imagery is not redistributed).
+These are being re-measured from the open per-region sources above — see the roadmap in
+the README. Per-track `license` / `attribution` / `source_url` fields record provenance.
+
+### Turns, sectors, start/finish
+Researched per circuit from official circuit sites, FIA/series diagrams and Wikipedia.
+Each annotation records its `sources` and a `confidence` value.
+
+## Full per-region license analysis
+See [`docs/SOURCE_REGISTRY.md`](docs/SOURCE_REGISTRY.md) for the verified source registry,
+resolution, and the redistribution verdict (✅ / ⚠️ / ❌) for every region.
+

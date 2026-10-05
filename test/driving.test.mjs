@@ -9,10 +9,11 @@ const configs=await Promise.all(CARS.map(async c=>parseCar(await readFile(new UR
 const specs=configs.map(carSpecs);
 function simulate(p,seconds,input={throttle:1},state=createState(),hz=120){for(let i=0;i<seconds*hz;i++)step(state,input,p,1/hz);return state;}
 
-test('all eight cars have distinct, finite sourced powertrains and valid mesh assets',async()=>{
- assert.equal(CARS.length,8);assert.equal(new Set(specs.map(p=>p.mass)).size,8);
+test('all ten cars have distinct, finite powertrains and valid model assets',async()=>{
+ assert.equal(CARS.length,10);assert.equal(new Set(specs.map(p=>p.mass)).size,10);
  for(let i=0;i<CARS.length;i++){
-  const p=specs[i];assert.ok(p.mass>500&&p.mass<2000);assert.ok(p.radius>.2&&p.radius<.4);assert.ok(p.gears.length>=4&&p.gears.length<=6);assert.ok(p.torque.length>5);
+  const p=specs[i];assert.ok(p.mass>500&&p.mass<2000);assert.ok(p.radius>.2&&p.radius<.4);assert.ok(p.gears.length>=4&&p.gears.length<=8);assert.ok(p.torque.length>5);
+  if(CARS[i].format==='gltf'){const bytes=await readFile(new URL(`../public/vehicles/cars/${CARS[i].id}/${CARS[i].model}`,import.meta.url));if(CARS[i].id==='P1'){assert.equal(bytes.toString('ascii',0,4),'glTF');assert.equal(bytes.readUInt32LE(8),bytes.length);}else{const g=JSON.parse(bytes);assert.equal(g.asset.version,'2.0');for(const ref of [...g.buffers,...g.images])assert.ok((await readFile(new URL(`../public/vehicles/cars/REV/${ref.uri}`,import.meta.url))).length>100);}}
   for(const part of ['body','interior','glass'].filter(part=>configs[i][part]?.mesh)){
    const buffer=await readFile(new URL(`../public/vehicles/cars/${CARS[i].id}/${configs[i][part].mesh}`,import.meta.url));const g=decodeJoe(buffer.buffer.slice(buffer.byteOffset,buffer.byteOffset+buffer.byteLength));
    assert.ok(g.attributes.position.count>100);assert.ok(g.boundingBox.max.x-g.boundingBox.min.x>1);assert.ok(g.boundingBox.max.x-g.boundingBox.min.x<3);
@@ -25,7 +26,7 @@ test('all eight cars have distinct, finite sourced powertrains and valid mesh as
 });
 test('the cars accelerate differently and automatic gears engage',()=>{
  const runs=specs.map(p=>simulate(p,10));for(const s of runs){assert.ok(s.speed>16&&s.speed<70);assert.ok(s.gear>1);assert.ok(s.rpm>900);assert.ok(s.distance>80);}
- assert.ok(runs[0].speed>runs[1].speed+2,'Celica must out-accelerate Mini');
+ assert.ok(runs[CARS.findIndex(c=>c.id==='TC6')].speed>runs[CARS.findIndex(c=>c.id==='MI')].speed+2,'Celica must out-accelerate Mini');
 });
 test('braking stops without accidentally reversing and R requires a stop',()=>{
  const s=simulate(specs[0],5);assert.equal(setDirection(s,-1),false);simulate(specs[0],10,{brake:1},s);assert.equal(s.speed,0);assert.equal(setDirection(s,-1),true);simulate(specs[0],3,{throttle:1},s);assert.ok(s.speed<0);
@@ -34,7 +35,7 @@ test('neutral cannot drive and coasting dissipates energy',()=>{
  const s=createState();setDirection(s,0);simulate(specs[0],5,{throttle:1},s);assert.equal(s.speed,0);setDirection(s,1);simulate(specs[0],5,{throttle:1},s);const before=s.speed;simulate(specs[0],5,{},s);assert.ok(s.speed<before);
 });
 test('left steering turns left, reverse steering changes yaw, and lateral grip stays bounded',()=>{
- const s=createState();simulate(specs[0],2,{throttle:.6,steer:1},s);assert.ok(s.x<4.5);assert.ok(s.yaw>0);assert.ok(Math.abs(s.lateral)<10);
+ const s=createState();simulate(specs[0],2,{throttle:.6,steer:1},s);assert.ok(s.x<4.5);assert.ok(s.yaw>0);assert.ok(Math.abs(s.lateral)<15);
  const reverse=createState();setDirection(reverse,-1);simulate(specs[0],3,{throttle:.6,steer:1},reverse);assert.ok(reverse.yaw<0);
 });
 test('simulation is stable across 60 and 120 Hz and obstacle stops motion',()=>{

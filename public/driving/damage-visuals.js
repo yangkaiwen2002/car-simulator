@@ -1,7 +1,8 @@
 import * as THREE from '../vendor/three.module.min.js';
 export function damageVisuals(root,source,body,specs){
  const engineZ=specs.engineLocation==='rear'?1:-1.1;
- body.geometry=body.geometry.clone();const original=body.geometry.attributes.position.array.slice(),box=body.geometry.boundingBox;
+ const bodies=Array.isArray(body)?body:[body],box=new THREE.Box3();
+ const originals=bodies.map(mesh=>{mesh.geometry=mesh.geometry.clone();mesh.geometry.computeBoundingBox();box.union(mesh.geometry.boundingBox);return mesh.geometry.attributes.position.array.slice();});
  const width=box.max.x-box.min.x,length=box.max.y-box.min.y;
  let revision=-1,burstStart=-100,wasExploded=false;
  const group=new THREE.Group();root.add(group);
@@ -12,10 +13,10 @@ export function damageVisuals(root,source,body,specs){
  const cracks=new THREE.Group();source.add(cracks);const lineMat=new THREE.LineBasicMaterial({color:'#c9d4d8',transparent:true,opacity:.6});
  for(let i=0;i<8;i++){const angle=i*Math.PI/4,points=[];for(let j=0;j<4;j++)points.push(new THREE.Vector3(Math.cos(angle)*j*.06,box.max.y*.3+Math.sin(angle)*j*.04,box.max.z*.8+j*.01));cracks.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(points),lineMat));}cracks.visible=false;
  return function update(state){const d=state.damage;if(!d)return;
-  if(revision!==d.revision){revision=d.revision;const a=body.geometry.attributes.position.array;
+  if(revision!==d.revision){revision=d.revision;bodies.forEach((body,index)=>{const a=body.geometry.attributes.position.array,original=originals[index];
    for(let i=0;i<a.length;i+=3){let x=original[i],y=original[i+1],z=original[i+2];const front=Math.max(0,(y-(box.max.y-length*.3))/(length*.3)),rear=Math.max(0,((box.min.y+length*.3)-y)/(length*.3)),left=Math.max(0,((box.min.x+width*.3)-x)/(width*.3)),right=Math.max(0,(x-(box.max.x-width*.3))/(width*.3));
     y-=d.front*front*front*.65;y+=d.rear*rear*rear*.62;x+=d.left*left*left*.38;x-=d.right*right*right*.38;const crush=Math.max(d.front*front,d.rear*rear,d.left*left,d.right*right);z+=crush*(Math.sin(original[i]*19+original[i+1]*14)*.06-.035);a[i]=x;a[i+1]=y;a[i+2]=z;
-   }body.geometry.attributes.position.needsUpdate=true;body.geometry.computeVertexNormals();body.geometry.computeBoundingSphere();body.material.roughness=.3+d.structure*.5;cracks.visible=d.front>.3;
+   }body.geometry.attributes.position.needsUpdate=true;body.geometry.computeVertexNormals();body.geometry.computeBoundingSphere();body.material.roughness=.3+d.structure*.5;});cracks.visible=d.front>.3;
   }
   if(d.exploded&&!wasExploded)burstStart=state.elapsed;wasExploded=d.exploded;
   const smoking=d.engine>.3||d.structure>.45,burn=d.exploded,age=state.elapsed-burstStart;group.visible=smoking||burn;

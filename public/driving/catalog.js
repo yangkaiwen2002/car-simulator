@@ -1,4 +1,6 @@
 export const CARS = [
+ {id:'P1',brand:'McLAREN',name:'P1 GTR',era:'赛道版 · V8 混合动力',category:'sports',type:'英国超跑 / 中置后驱',color:'#f09024',accent:'#f5b86b',description:'低坐姿，长尾翼。沿纽北的森林疾驰，用细致的刹车和油门寻找下一次突破。',drive:'RWD',format:'gltf',model:'model.glb',modelLength:4.588,eye:[-.4,.91,-.04],cabin:'左舵 · 社区赛道座舱',quality:'P1 GTR 独立模型 · 近似动力调校',audioPath:'./vehicles/cars/EF/engine.wav'},
+ {id:'REV',brand:'LAMBORGHINI',name:'Revuelto',era:'V12 混合动力 · 八速',category:'sports',type:'意式超跑 / 四轮驱动',color:'#b9d544',accent:'#d6ee8c',description:'锋利的轮廓，鲜明的 V12 个性。四轮驱动与更从容的牵引力，让每段出弯都有新的期待。',drive:'AWD',format:'gltf',model:'scene.gltf',modelLength:4.947,eye:[-.445,.98,.02],cabin:'左舵 · 独立内饰与方向盘',quality:'Revuelto 独立模型 · 近似动力调校',audioPath:'./vehicles/cars/EF/engine.wav'},
   {id:'TC6',brand:'TOYOTA',name:'Celica GT-Four',era:'第六代 · ST205',category:'sports',type:'拉力血统 / 双门跑车',color:'#cbd8df',accent:'#c3d9e7',description:'四轮驱动，涡轮扭矩。沿着海岸线，重新认识九十年代的驾驶乐趣。',drive:'AWD',viewOffset:[0,-.02,.12],cabin:'右舵 · 经典座舱',quality:'独立座舱与车身模型'},
   {id:'MI',brand:'MINI',name:'Classic Mini',era:'经典款 · 1.3',category:'daily',type:'城市经典 / 轻量掀背',color:'#b74d36',accent:'#e39b7d',description:'小车身，短轴距。穿过街角，感受轻巧直接的城市驾驶。',drive:'FWD',viewOffset:[0,-.085,.17],cabin:'左舵 · 经典横向仪表台',quality:'独立座舱与车身模型'},
   {id:'3S',brand:'MAZDA',name:'Mazda 3',era:'第一代 · 2.3',category:'daily',type:'日常驾驶 / 运动轿车',color:'#697b92',accent:'#a6bbd4',description:'熟悉的日常，也可以值得期待。用一辆自然吸气轿车探索整座城市。',drive:'FWD',viewOffset:[0,-.075,.22],cabin:'左舵 · 基础座舱',quality:'基础座舱模型'},
@@ -31,6 +33,16 @@ export function carSpecs(config){
   const gears=Array.from({length:t.gears},(_,i)=>t['gear-ratio-'+(i+1)]);
   const tank=config['fuel-tank'];
   const mass=Object.values(config).reduce((s,v)=>s+(v.mass||0),0)+(tank.volume||0)*(tank['fuel-density']||.75);
+  const brakeAxles={front:0,rear:0};
+  for(const key of ['fl','fr','rl','rr']){const b=config['wheel.'+key+'.brake'];if(b)brakeAxles[key[0]==='f'?'front':'rear']+=b.friction*b['max-pressure']*b.area*b.radius*b.bias/wheels[key].radius;}
+  const brakeForce=brakeAxles.front+brakeAxles.rear;
+  const massPoints=Object.values(config).filter(v=>v.mass&&Array.isArray(v.position)).map(v=>({mass:v.mass,position:v.position}));
+  massPoints.push({mass:(tank.volume||0)*(tank['fuel-density']||.75),position:tank.position||[0,0,0]});
+  const weightedMass=massPoints.reduce((sum,p)=>sum+p.mass,0),cg=[0,1,2].map(axis=>massPoints.reduce((sum,p)=>sum+p.mass*p.position[axis],0)/weightedMass);
+  const lift=-Math.min(...['fl','fr','rl','rr'].map(key=>config['wheel.'+key].position[2]-wheels[key].radius))+.018;
+  const frontAxle=config['wheel.fl'].position[1]-cg[1],rearAxle=cg[1]-config['wheel.rl'].position[1];
+  const cgHeight=Math.max(.2,Math.min(.85,cg[2]+lift));
+  const yawInertia=config.chassis?.['yaw-inertia']||massPoints.reduce((sum,p)=>sum+p.mass*((p.position[0]-cg[0])**2+(p.position[1]-cg[1])**2),0);
   const torque=Object.entries(e).filter(([k])=>k.startsWith('torque-curve')).map(([,v])=>v).sort((a,b)=>a[0]-b[0]);
-  return {engineLocation:config.engine.position?.[1]<0?'rear':'front',wheels,mass,torque,gears,reverse:Math.abs(t['gear-ratio-r']),finalDrive:(config['differential-center']||config['differential-front']||config['differential-rear'])['final-drive'],radius,width:size[0]/1000,rim:size[2]*.0254,power:e['max-power']/1000,redline:e['rpm-limit'],idle:e['start-rpm']||900,displacement:e.displacement*1000,peakTorque:Math.max(...torque.map(x=>x[1])),wheelbase:config['wheel.fl'].position[1]-config['wheel.rl'].position[1],maxSteer:config['wheel.fl'].steering*Math.PI/180,drag:Object.entries(config).filter(([k])=>k.startsWith('wing')).reduce((a,[,v])=>a+(v['frontal-area']||0)*(v['drag-coefficient']||0),0)||.65,drive:config['differential-center']?'AWD':config['differential-front']?'FWD':'RWD'};
+  return {tireGrip:config.chassis?.['tire-grip']||1.08,downforce:config.chassis?.downforce||0,brakeForce,brakeAxles,frontAxle,rearAxle,cgHeight,yawInertia,engineLocation:config.engine.position?.[1]<0?'rear':'front',wheels,mass,torque,gears,reverse:Math.abs(t['gear-ratio-r']),finalDrive:(config['differential-center']||config['differential-front']||config['differential-rear'])['final-drive'],radius,width:size[0]/1000,rim:size[2]*.0254,power:e['max-power']/1000,redline:e['rpm-limit'],idle:e['start-rpm']||900,displacement:e.displacement*1000,peakTorque:Math.max(...torque.map(x=>x[1])),wheelbase:config['wheel.fl'].position[1]-config['wheel.rl'].position[1],maxSteer:config['wheel.fl'].steering*Math.PI/180,drag:Object.entries(config).filter(([k])=>k.startsWith('wing')).reduce((a,[,v])=>a+(v['frontal-area']||0)*(v['drag-coefficient']||0),0)||.65,drive:config['differential-center']?'AWD':config['differential-front']?'FWD':'RWD'};
 }

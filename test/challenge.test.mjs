@@ -6,7 +6,7 @@ import {createDamage,applyImpact,performance} from '../public/driving/damage.js'
 import {createBody,createCollisionWorld} from '../public/driving/collision.js';
 const routes=await Promise.all(CIRCUITS.map(async c=>buildRoute(JSON.parse(await readFile(new URL(`../public/circuits/${c.id}.geojson`,import.meta.url),'utf8')))));
 function feed(timer,route,from,to,speed=40){const dt=1/120;for(let d=from;d<to;d+=speed*dt){const p=route.at(d);timer.update(p.x,p.z,dt);}}
-test('both F1 layouts preserve projected real coordinates and circuit scale',()=>{
+test('all three circuits preserve projected real coordinates and scale',()=>{
  routes.forEach((route,i)=>{assert.ok(Math.abs(route.length-CIRCUITS[i].length)<CIRCUITS[i].length*.025,`${CIRCUITS[i].id}: ${route.length}`);assert.ok(route.segments.every(s=>s.len>0&&s.len<=7.01));const p=route.at(850);assert.ok(route.nearest(p.x,p.z).distance<1e-7);assert.ok(Math.abs(route.nearest(p.x,p.z).progress-850)<.001);});
 });
 test('a clean full lap records interpolated time and three sectors',()=>{
@@ -34,4 +34,9 @@ test('extreme impact disables propulsion and triggers a one-way accident effect 
 });
 test('actual solver reports impact energy and speed, with stronger impacts causing more damage',()=>{
  const crashes=[5,18,35].map(speed=>{const w=createCollisionWorld([{x:0,z:0,hx:30,hz:.2}]),b=createBody({x:0,z:2.21,hx:.9,hz:2,mass:1200,vz:-speed}),hit=w.advance(b,1/30);assert.ok(hit.energy>0);assert.ok(hit.deltaV>0);const s={yaw:0,damage:createDamage()};applyImpact(s,{mass:1200,engineLocation:'front'},hit);return s.damage;});assert.ok(crashes[1].front>crashes[0].front);assert.equal(crashes[0].exploded,false);assert.equal(crashes[2].exploded,true);
+});
+
+test('Nordschleife is the full north loop with continuous, finite terrain heights',()=>{
+ const r=routes[CIRCUITS.findIndex(c=>c.id==='nordschleife')];assert.ok(r.length>20500&&r.length<21000);assert.ok(Math.max(...r.points.map(p=>p.y))-Math.min(...r.points.map(p=>p.y))>270);
+ assert.ok(r.segments.every(s=>Number.isFinite(s.grade)&&Math.abs(s.grade)<.4));const a=r.at(.001),b=r.at(r.length-.001);assert.ok(Math.abs(a.y-b.y)<.01);
 });

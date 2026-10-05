@@ -1,0 +1,11 @@
+Free McLaren P1 GTR
+Model by ALIEEEN (formerly Desiccated_Lemon)
+https://sketchfab.com/3d-models/free-mclaren-p1-gtr-d805bec04cf5407fa7c036c20c726d39
+CC BY 4.0: https://creativecommons.org/licenses/by/4.0/
+
+Original asset files preserved. Runtime material, scale, wheel, camera and damage adaptations by OpenRoad.
+The .car file is an original approximate gameplay calibration, not factory measurements.
+Torque curves, gear ratios, mass, brake settings, tire grip and aero are calibrated estimates.
+Hybrid propulsion uses a single combined torque curve; no battery or energy-recovery simulation.
+Engine audio is a placeholder from EF/CO, not a recording of this car.
+See ../../../CREDITS.txt for complete sources and limitations.

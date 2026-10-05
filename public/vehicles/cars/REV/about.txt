@@ -1,0 +1,11 @@
+Free Lamborghini Revuelto
+Model by ALIEEEN
+https://sketchfab.com/3d-models/free-lamborghini-revuelto-cf52245eb68f48daa909c7ad2a8deaa3
+CC BY 4.0: https://creativecommons.org/licenses/by/4.0/
+
+Original asset files preserved. Runtime material, scale, wheel, camera and damage adaptations by OpenRoad.
+The .car file is an original approximate gameplay calibration, not factory measurements.
+Torque curves, gear ratios, mass, brake settings, tire grip and aero are calibrated estimates.
+Hybrid propulsion uses a single combined torque curve; no battery or energy-recovery simulation.
+Engine audio is a placeholder from EF/CO, not a recording of this car.
+See ../../../CREDITS.txt for complete sources and limitations.
