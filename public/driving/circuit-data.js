@@ -38,8 +38,14 @@ export function createLapTimer(route,halfWidth,onLap=()=>{}){
   timer.trackWarning=timer.offRoad&&timer.start!==null;
   // Brief excursions are recoverable; deep cuts or staying outside delete the lap.
   if(now.distance>halfWidth+6||timer.offTrackTime>2)invalidate('驶出赛道过远或过久');
-  if(timer.previous!==null&&dt>0){let delta=p-timer.previous;if(delta>L/2)delta-=L;if(delta<-L/2)delta+=L;timer.wrongWay=delta<-.08;
-   const jumped=Math.abs(delta)>Math.max(4,dt*110)||Math.hypot(x-timer.previousPoint.x,z-timer.previousPoint.z)>Math.max(4,dt*110);
+  if(timer.previous!==null&&dt>0){let delta=p-timer.previous;if(delta>L/2)delta-=L;if(delta<-L/2)delta+=L;
+   const dx=x-timer.previousPoint.x,dz=z-timer.previousPoint.z,travel=Math.hypot(dx,dz),travelLimit=Math.max(4,dt*110);
+   // Nearest-segment projection can switch across a tight apex while the car
+   // moves only centimetres. Allow that width-dependent arc jump, while still
+   // rejecting physical teleports and jumps to distant parts of the circuit.
+   const projectionLimit=travelLimit+2*(halfWidth+6);
+   timer.wrongWay=delta<-.08&&dx*now.tx+dz*now.tz<-.02;
+   const jumped=travel>travelLimit||Math.abs(delta)>projectionLimit;
    if(jumped)invalidate('漏过检查点');
    if(timer.wrongWay)invalidate('逆向行驶');
    const forward=delta>0&&!jumped,crossed=timer.previous>L-10&&p<10&&forward&&!timer.offRoad;

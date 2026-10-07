@@ -60,3 +60,14 @@ test('crossing time is interpolated consistently at 30 Hz and 120 Hz',()=>{
  const route=routes[1];const run=hz=>{const t=createLapTimer(route,6);for(let d=-35;d<route.length+4;d+=40/hz){const p=route.at(d);t.update(p.x,p.z,1/hz);}return t.last;};
  const a=run(30),b=run(120);assert.ok(a.valid&&b.valid);assert.ok(Math.abs(a.time-b.time)<.002);a.sectors.forEach((s,i)=>assert.ok(Math.abs(s-b.sectors[i])<.002));
 });
+
+test('wide Red Bull Ring accepts the whole road through tight apex projection changes',()=>{
+ const index=CIRCUITS.findIndex(c=>c.id==='redbullring'),route=routes[index],width=CIRCUITS[index].halfWidth;
+ // Follow the exact mitered road ribbon used by the renderer, not a centreline.
+ const normals=route.points.map((p,i)=>{const a=route.segments[(i+route.points.length-1)%route.points.length],b=route.segments[i];let x=a.tz+b.tz,z=-a.tx-b.tx;const len=Math.hypot(x,z);x/=len;z/=len;const k=Math.min(2,1/Math.max(.5,x*b.tz-z*b.tx));return {x:x*k,z:z*k};});
+ for(const offset of [-7,-4,4,7])for(const speed of [40,110]){
+ const timer=createLapTimer(route,width);let previous;
+ for(let d=-35;d<route.length+5;d+=.4){const at=route.at(d),i=route.segments.findIndex(s=>s.start+s.len>=at.progress),seg=route.segments[i],u=(at.progress-seg.start)/seg.len,a=normals[i],b=normals[(i+1)%normals.length];const p={x:at.x+offset*(a.x+(b.x-a.x)*u),z:at.z+offset*(a.z+(b.z-a.z)*u)};timer.update(p.x,p.z,previous?Math.hypot(p.x-previous.x,p.z-previous.z)/speed:0);previous=p;}
+ assert.ok(timer.last?.valid,`${offset} m / ${speed} m/s: ${timer.last?.reason}`);assert.equal(timer.last.sectors.length,3);assert.equal(timer.last.trace.length,61);assert.ok(Math.abs(timer.last.sectors.reduce((a,b)=>a+b,0)-timer.last.time)<1e-6);
+ }
+});

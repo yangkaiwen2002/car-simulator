@@ -1,12 +1,12 @@
-import {targetsFor,resolveTarget,assessLap,earnedTargets} from './driving/challenge-targets.js?v=0.10.0';
+import {targetsFor,resolveTarget,assessLap,earnedTargets} from './driving/challenge-targets.js?v=0.10.1';
 import * as THREE from './vendor/three.module.min.js';
 import {CARS,parseCar,carSpecs,carsInCollection} from './driving/catalog.js?v=0.9.0';
 import {loadVehicle} from './driving/joe.js';
 import {loadGltfVehicle} from './driving/gltf-vehicle.js?v=0.9.0';
 import {createCity,createGarage,makeEnvironment,STREETS} from './driving/city.js';
-import {createCircuit} from './driving/circuit.js?v=0.10.0';
-import {CIRCUITS,buildRoute,createLapTimer,formatLap,timingView} from './driving/circuit-data.js?v=0.10.0';
-import {createState,step,setDirection,clamp} from './driving/physics.js?v=0.10.0';
+import {createCircuit} from './driving/circuit.js?v=0.10.1';
+import {CIRCUITS,buildRoute,createLapTimer,formatLap,timingView} from './driving/circuit-data.js?v=0.10.1';
+import {createState,step,setDirection,clamp} from './driving/physics.js?v=0.10.1';
 
 const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
 let renderer,garage,city,camera,vehicle,selected=CARS.find(c=>c.id==='MCL39'),specs,mode='garage',cabin=false,paused=false,loading=false,loadId=0;

@@ -1,6 +1,6 @@
 {
   "name":"openroad",
-  "version":"0.10.0",
+  "version":"0.10.1",
   "private":true,
   "description":"A browser-first city driving experience with community vehicle models.",
   "license":"GPL-3.0-only",
