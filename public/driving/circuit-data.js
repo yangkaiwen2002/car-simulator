@@ -1,4 +1,5 @@
 export const CIRCUITS=[
+ {id:'redbullring',name:'红牛环 · 宽版',title:'RED BULL RING',country:'AUSTRIA',length:4318,turns:10,halfWidth:8,description:'入门推荐 · 16 米宽路面 · 三段长直道',source:'https://github.com/bacinger/f1-circuits/blob/master/circuits/at-1969.geojson'},
  {id:'nordschleife',name:'纽博格林北环',title:'NORDSCHLEIFE',country:'GERMANY',length:20832,turns:73,halfWidth:4.5,description:'绿色地狱 · 森林与起伏',source:'https://github.com/chendo/opentrackdata'},
  {id:'monza',name:'蒙扎',title:'MONZA',country:'ITALY',length:5793,turns:11,halfWidth:6,description:'长直道与重刹弯 · 速度殿堂',source:'https://github.com/bacinger/f1-circuits/blob/master/circuits/it-1922.geojson'},
  {id:'silverstone',name:'银石',title:'SILVERSTONE',country:'UNITED KINGDOM',length:5891,turns:18,halfWidth:6,description:'高速连续弯 · 节奏与控制',source:'https://github.com/bacinger/f1-circuits/blob/master/circuits/gb-1948.geojson'},

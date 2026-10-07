@@ -1,5 +1,6 @@
 // Dynamic planar vehicle: axle tire forces drive translation and yaw inertia.
 // Contact impulses are solved by collision.js; drivetrain data comes from .car.
+import {shapeDigitalInput} from './driver-input.js';
 import {createBody} from './collision.js';
 import {createDamage,applyImpact,performance} from './damage.js';
 import {tireForces} from './tires.js';
@@ -15,6 +16,7 @@ export function step(s,input,p,dt,world=null){
  dt=clamp(dt,0,1/30);if(!dt)return s;
  // Integrate stiff tire forces at 120 Hz even when a caller supplies larger steps.
  if(dt>1/120+1e-9){const n=Math.ceil(dt*120);for(let i=0;i<n;i++)step(s,input,p,dt/n,world);return s;}
+ if(input.digital)input=shapeDigitalInput(s,input,p,dt);
  s.elapsed+=dt;s.shift=Math.max(0,s.shift-dt);s.collision=false;s.impact=null;s.impactPulse=Math.max(0,(s.impactPulse||0)*Math.exp(-dt*8)-dt*.02);
  const speed=Math.abs(s.speed),brake=clamp(input.brake||0,0,1),handbrake=!!input.handbrake;
  const response=brake>(s.brakePressure||0)?.045:.025;
@@ -22,7 +24,8 @@ export function step(s,input,p,dt,world=null){
  // Braking wins over the throttle immediately, not after pressure builds up.
  const assisted=input.assists!==false;
  const requestedThrottle=brake>.01||s.brakePressure>.04||handbrake?0:clamp(input.throttle||0,0,1);
- s.pedalThrottle=requestedThrottle===0?0:requestedThrottle+((s.pedalThrottle||0)-requestedThrottle)*Math.exp(-dt/(assisted?.13:.035));
+ s.pedalThrottle=requestedThrottle===0?(input.digital&&brake===0&&s.brakePressure<.001&&!handbrake?(s.pedalThrottle||0)*Math.exp(-dt/.045):0):requestedThrottle+((s.pedalThrottle||0)-requestedThrottle)*Math.exp(-dt/(assisted?.13:.035));
+ if(s.pedalThrottle<.001)s.pedalThrottle=0;
  const slip=Math.atan2(s.sideSpeed||0,Math.max(speed,4));
  s.stabilityActive=assisted&&!handbrake&&speed>5&&Math.abs(slip)>.10;
  const throttle=s.pedalThrottle*(s.stabilityActive?clamp(1-(Math.abs(slip)-.10)*3.2,.2,1):1);

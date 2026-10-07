@@ -6,7 +6,7 @@ import {createDamage,applyImpact,performance} from '../public/driving/damage.js'
 import {createBody,createCollisionWorld} from '../public/driving/collision.js';
 const routes=await Promise.all(CIRCUITS.map(async c=>buildRoute(JSON.parse(await readFile(new URL(`../public/circuits/${c.id}.geojson`,import.meta.url),'utf8')))));
 function feed(timer,route,from,to,speed=40){const dt=1/120;for(let d=from;d<to;d+=speed*dt){const p=route.at(d);timer.update(p.x,p.z,dt);}}
-test('all three circuits preserve projected real coordinates and scale',()=>{
+test('all circuits preserve projected real coordinates and scale',()=>{
  routes.forEach((route,i)=>{assert.ok(Math.abs(route.length-CIRCUITS[i].length)<CIRCUITS[i].length*.025,`${CIRCUITS[i].id}: ${route.length}`);assert.ok(route.segments.every(s=>s.len>0&&s.len<=7.01));const p=route.at(850);assert.ok(route.nearest(p.x,p.z).distance<1e-7);assert.ok(Math.abs(route.nearest(p.x,p.z).progress-850)<.001);});
 });
 test('a clean full lap records interpolated time and three sectors',()=>{
