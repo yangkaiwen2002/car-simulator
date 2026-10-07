@@ -6,7 +6,7 @@
 
 车库默认展示「2021+ 新世代」：2021 BMW M4 Competition（G82 改款前座舱）和 2023 Lamborghini Revuelto。年份对应车型，不是模型上传年份。旧车型放在「经典收藏」，可以随时切换。
 
-当前车库共 13 款车型：原创 W33 奔驰银河 F1、Red Bull RB19（2023）、BMW M4 Competition、McLaren P1 GTR、Lamborghini Revuelto、Ferrari Enzo、Ford GT40、Porsche 911 Club Sport、Toyota Celica GT-Four、Toyota Corolla Levin AE86、MINI Cooper S、经典 Mini 1.3 和 Mazda 3。
+当前车库共 14 款车型：McLaren MCL39（2025，游戏增强版）、原创 W33 奔驰银河 F1、Red Bull RB19（2023）、BMW M4 Competition、McLaren P1 GTR、Lamborghini Revuelto、Ferrari Enzo、Ford GT40、Porsche 911 Club Sport、Toyota Celica GT-Four、Toyota Corolla Levin AE86、MINI Cooper S、经典 Mini 1.3 和 Mazda 3。
 
 支持三维展厅、车型缩略图、车身配色、第一人称驾驶及车身检查视角、键盘/触屏驾驶、自动换挡、倒挡、巡航、位置地图和引擎音效。新版加入平面刚体碰撞、车辆损伤，以及纽博格林北环、蒙扎和银石单圈计时挑战。
 
@@ -104,3 +104,10 @@ M4 使用独立数字座舱、中控和带按键的原车方向盘，完整方�
 W33 为用户命名的幻想赛车，不对应真实奔驰车型。衍生使用已有 CC BY 4.0 Redgrund 方程式底盘，移除原品牌贴图并添加原创银色、青绿与银河材质。配置功率 1396.5 kW，扭矩曲线与下压力系数均比本游戏 RB19 增加 90%；并不代表圈速或极速增加 90%。90 秒平地全油门测试约 424 km/h，对照 RB19 约 312 km/h；200 km/h 定速转弯约 4.9g，为幻想调校。
 
 轻微出界可重复，次数不限；每次连续出界容错由 0.8 秒延长至 2 秒，超过路边 6 米、持续出界、逆行或漏检查点仍无效。新成绩保存在 v9，避免与旧规则比较。
+
+
+## 0.9.0 · McLaren MCL39
+
+新增 shunqi 的独立 MCL39 社区模型（CC BY 4.0），保留木瓜橙涂装与 Halo，四轮独立转向/滚动。原模型没有独立方向盘，本项目补全近似赛车方向盘与实时档位/车速/RPM 屏幕。动力、座舱和音效均不是车队官方数据。
+
+按用户要求，以本游戏 RB19 为基准增强：功率和扭矩 +25%；120 Hz 平地测试极速 394 对 312 km/h（+26%），0–100 为 2.13 对 2.65 秒，0–200 为 3.93 对 5.05 秒；200–0 刹停距离 47.3 对 57.3 米。80/120/200 km/h 定速过弯横向加速度提升约 23% / 26% / 30%。这些结果是游戏基准测试，不代表真实 MCL39 比 RB19 快这些幅度。

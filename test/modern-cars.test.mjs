@@ -4,7 +4,7 @@ import {readFile} from 'node:fs/promises';
 import {CARS,carsInCollection,parseCar,carSpecs} from '../public/driving/catalog.js';
 
 test('modern collection uses represented model years and keeps classics accessible',()=>{
- const modern=carsInCollection();assert.deepEqual(modern.map(c=>[c.id,c.year]),[['W33',2026],['RB19',2023],['REV',2023],['M4',2021]]);
+ const modern=carsInCollection();assert.deepEqual(modern.map(c=>[c.id,c.year]),[['W33',2026],['MCL39',2025],['RB19',2023],['REV',2023],['M4',2021]]);
  assert.ok(modern.every(c=>c.year>=2021&&c.year<=2026));
  assert.equal(carsInCollection('classic').length+modern.length,CARS.length);
  assert.equal(new Set(carsInCollection('all').map(c=>c.id)).size,CARS.length);

@@ -60,9 +60,9 @@ function circle(p,kph,steer=1){
 test('road mode can use available cornering grip instead of imposing premature understeer',()=>{
  for(const {id,p} of cars)for(const speed of [30,50,80,120]){
   const {s}=circle(p,speed),available=(p.tireGrip||1.08)*(9.81+(p.downforce||0)*s.speed*s.speed/p.mass),usage=s.speed*s.yawRate/available;
-  assert.ok(usage>(id==='W33'&&speed===30?.55:id==='RB19'&&speed===30?.6:speed===120?.76:.8),`${id} ${speed}: steering only uses ${(usage*100).toFixed(1)}% of available grip`);
+  assert.ok(usage>(id==='W33'&&speed===30?.55:['RB19','MCL39'].includes(id)&&speed===30?.6:speed===120?.76:.8),`${id} ${speed}: steering only uses ${(usage*100).toFixed(1)}% of available grip`);
   assert.ok(usage<1.06,`${id}: no artificial extra cornering force`);
-  assert.ok(Math.abs(Math.atan2(s.sideSpeed,s.speed))<(['RB19','W33'].includes(id)&&speed===30?.23:.16),`${id}: sustained corner remains controllable`);
+  assert.ok(Math.abs(Math.atan2(s.sideSpeed,s.speed))<(['RB19','W33','MCL39'].includes(id)&&speed===30?.23:.16),`${id}: sustained corner remains controllable`);
  }
 });
 test('M4 turns in promptly while partial steering stays progressive',()=>{

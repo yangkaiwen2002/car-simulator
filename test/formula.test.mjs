@@ -32,3 +32,16 @@ test('W33 is much faster on the straight and sustains stable high-speed cornerin
  for(const kph of [120,200,300]){const s=circle(kph,w33),old=circle(kph,p);assert.ok(s.speed*s.yawRate>old.speed*old.yawRate*1.25);assert.ok(Math.abs(Math.atan2(s.sideSpeed,s.speed))<.1);
   for(let i=0;i<360;i++)step(s,{},w33,1/120);assert.ok(Math.abs(s.yawRate)<.03);}
 });
+const mcl39=carSpecs(parseCar(await readFile(new URL('../public/vehicles/cars/MCL39/MCL39.car',import.meta.url),'utf8')));
+test('MCL39 enhanced tune improves straight-line performance and braking over game RB19',()=>{
+ const bench=params=>{const s=createState();let t100=0,t200=0;for(let i=0;i<10800;i++){step(s,{throttle:1},params,1/120);if(!t100&&s.speed>=100/3.6)t100=(i+1)/120;if(!t200&&s.speed>=200/3.6)t200=(i+1)/120;}const stop=Object.assign(createState(),{speed:200/3.6});for(let i=0;i<2400;i++)step(stop,{brake:1},params,1/120);return {top:s.speed,t100,t200,distance:stop.distance};};
+ const a=bench(p),b=bench(mcl39);assert.equal(mcl39.power/p.power,1.25);
+ for(const ratio of [b.top/a.top,a.t100/b.t100,a.t200/b.t200,a.distance/b.distance])assert.ok(ratio>=1.2&&ratio<=1.3,`performance ratio ${ratio}`);
+});
+test('MCL39 gains 20–30% sustained cornering acceleration without unrecoverable slide',()=>{
+ for(const speed of [80,120,200]){const a=circle(speed),b=circle(speed,mcl39),gain=b.speed*b.yawRate/(a.speed*a.yawRate);assert.ok(gain>=1.2&&gain<=1.3,`${speed} km/h: ${gain}`);assert.ok(Math.abs(Math.atan2(b.sideSpeed,b.speed))<.12);for(let i=0;i<360;i++)step(b,{},mcl39,1/120);assert.ok(Math.abs(b.yawRate)<.03);}
+});
+test('MCL39 uses its own attributed McLaren model, with distinct body, halo and axles',async()=>{
+ const b=await readFile(new URL('../public/vehicles/cars/MCL39/model.glb',import.meta.url));const g=JSON.parse(b.subarray(20,20+b.readUInt32LE(12)));assert.match(g.asset.extras.title,/MCL39/);assert.match(g.asset.extras.author,/shunqi/);assert.match(g.asset.extras.license,/CC-BY-4.0/);
+ for(const part of ['main_body','halo','front_tire','rear_tire'])assert.ok(g.materials.some(m=>m.name===part));
+});

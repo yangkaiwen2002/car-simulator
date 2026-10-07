@@ -197,3 +197,9 @@ Meshopt decoder: meshoptimizer by Arseny Kapoulkine, MIT, bundled from Three.js 
 W33 奔驰银河 F1 — fictional fan concept, not a real Mercedes vehicle or official team specification.
 Original galaxy/silver/teal procedural livery by OpenRoad; chassis geometry adapted at runtime from Redgrund RB19 CC BY 4.0 community model. Original branding textures removed. Uses ../RB19/model.glb, retaining original attribution and license; see ../RB19/about.txt.
 Power and torque curve are exactly 1.9 times the OpenRoad RB19 calibration; downforce coefficient also 1.9 times. This does not claim 90% faster lap times or top speed. 780 kg with fuel, extended gearing and reduced drag; fictional gameplay parameters.
+
+MCL39 (2025): F1 2025 McLaren MCL39 by shunqi, CC BY 4.0.
+https://sketchfab.com/3d-models/f1-2025-mclaren-mcl39-c6194270002b401bb25be7e35ab56e34
+https://creativecommons.org/licenses/by/4.0/
+Public mirror: SpeedHQ/RaceIQ, commit 4ad0483f07af60c5113dc1003945859492dd8580.
+Textures repacked/resized; axle animation, damage, approximate supplemental steering wheel and live display added. See vehicles/cars/MCL39/about.txt. Game-enhanced physics, not real vehicle performance data.

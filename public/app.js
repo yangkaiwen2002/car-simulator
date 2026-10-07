@@ -1,14 +1,14 @@
 import * as THREE from './vendor/three.module.min.js';
-import {CARS,parseCar,carSpecs,carsInCollection} from './driving/catalog.js';
+import {CARS,parseCar,carSpecs,carsInCollection} from './driving/catalog.js?v=0.9.0';
 import {loadVehicle} from './driving/joe.js';
-import {loadGltfVehicle} from './driving/gltf-vehicle.js';
+import {loadGltfVehicle} from './driving/gltf-vehicle.js?v=0.9.0';
 import {createCity,createGarage,makeEnvironment,STREETS} from './driving/city.js';
 import {createCircuit} from './driving/circuit.js';
 import {CIRCUITS,buildRoute,createLapTimer,formatLap,timingView} from './driving/circuit-data.js';
 import {createState,step,setDirection,clamp} from './driving/physics.js?v=0.8.0';
 
 const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
-let renderer,garage,city,camera,vehicle,selected=CARS.find(c=>c.id==='W33'),specs,mode='garage',cabin=false,paused=false,loading=false,loadId=0;
+let renderer,garage,city,camera,vehicle,selected=CARS.find(c=>c.id==='MCL39'),specs,mode='garage',cabin=false,paused=false,loading=false,loadId=0;
 let state=createState(),lastTime=0,accumulator=0,uiTime=0,orbit=-.8,zoom=1,lookX=0,lookY=0,seat=0,fov=70,cruise=false,quality='medium',assists=true;
 let destination='city',lapTimer=null,starting=false,inspectDamage=false;const worlds=new Map();
 const keys=new Set(),touch=new Set(),cache=new Map(),thumbnails=new Map();
@@ -59,7 +59,7 @@ $('#cars-next').onclick=()=>$('#car-list').scrollBy({left:$('#car-list').clientW
 $('#car-list').addEventListener('scroll',updateCollectionArrows,{passive:true});
 
 function renderPaint(){
- $('#paint-options').replaceChildren();for(const [i,color] of (['RB19','W33'].includes(selected.id)?[selected.color]:[selected.color,'#294d45','#902e2b','#d8c29c','#2c3034']).entries()){
+ $('#paint-options').replaceChildren();for(const [i,color] of (['RB19','W33','MCL39'].includes(selected.id)?[selected.color]:[selected.color,'#294d45','#902e2b','#d8c29c','#2c3034']).entries()){
   const b=document.createElement('button');b.className='paint'+(i===0?' selected':'');b.style.backgroundColor=color;b.setAttribute('aria-label',['原色','森林绿','酒红','香槟金','石墨黑'][i]);b.title=b.getAttribute('aria-label');b.onclick=()=>{if(!vehicle||loading)return;vehicle.paint.set(color);$$('.paint').forEach(x=>x.classList.remove('selected'));b.classList.add('selected');};$('#paint-options').append(b);
  }
 }

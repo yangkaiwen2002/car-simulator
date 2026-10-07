@@ -9,7 +9,7 @@ function run(id,seconds,input,s=createState(),hz=120){for(let i=0;i<seconds*hz;i
 function stop(id,extra={},damage=false){const s=createState();s.speed=100/3.6;if(damage)s.damage.brakes=1;run(id,12,{brake:1,...extra},s);return s;}
 
 test('100–0 km/h stops in a calibrated dry-road range for all cars; W+S brakes identically',()=>{
- for(const id of Object.keys(specs)){const a=stop(id),b=stop(id,{throttle:1});assert.equal(a.speed,0,id);assert.ok((id==='W33'?a.distance>14&&a.distance<20:id==='RB19'?a.distance>17&&a.distance<24:a.distance>24&&a.distance<40),`${id}: ${a.distance.toFixed(2)} m`);assert.ok(Math.abs(a.distance-b.distance)<1e-9,id);assert.equal(b.throttle,0);assert.equal(b.brakeHold,true);}
+ for(const id of Object.keys(specs)){const a=stop(id),b=stop(id,{throttle:1});assert.equal(a.speed,0,id);assert.ok((['W33','MCL39'].includes(id)?a.distance>14&&a.distance<20:id==='RB19'?a.distance>17&&a.distance<24:a.distance>24&&a.distance<40),`${id}: ${a.distance.toFixed(2)} m`);assert.ok(Math.abs(a.distance-b.distance)<1e-9,id);assert.equal(b.throttle,0);assert.equal(b.brakeHold,true);}
 });
 test('partial brake is genuinely progressive; damaged brakes and grass lengthen stopping distance',()=>{
  const dry=stop('EF').distance;assert.ok(stop('EF',{brake:.4}).distance>dry*1.5);assert.ok(stop('EF',{},true).distance>dry*1.5);assert.ok(stop('EF',{offRoad:true}).distance>dry*1.5);
