@@ -1,0 +1,3 @@
+W33 奔驰银河 F1 — fictional fan concept, not a real Mercedes vehicle or official team specification.
+Original galaxy/silver/teal procedural livery by OpenRoad; chassis geometry adapted at runtime from Redgrund RB19 CC BY 4.0 community model. Original branding textures removed. Uses ../RB19/model.glb, retaining original attribution and license; see ../RB19/about.txt.
+Power and torque curve are exactly 1.9 times the OpenRoad RB19 calibration; downforce coefficient also 1.9 times. This does not claim 90% faster lap times or top speed. 780 kg with fuel, extended gearing and reduced drag; fictional gameplay parameters.

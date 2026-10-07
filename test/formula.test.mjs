@@ -21,3 +21,14 @@ test('RB19 compressed asset preserves original attribution and separately riggab
  assert.match(j.asset.extras.author,/Redgrund/);assert.match(j.asset.extras.license,/CC-BY-4.0/);
  for(const name of ['body','wheel_FL','wheel_FR','wheel_RL','wheel_RR','steering_wheel'])assert.ok(j.nodes.some(n=>n.name===name));
 });
+const w33=carSpecs(parseCar(await readFile(new URL('../public/vehicles/cars/W33/W33.car',import.meta.url),'utf8')));
+test('W33 has precisely 90% more configured power, torque and downforce than RB19',()=>{
+ assert.equal(w33.power,p.power*1.9);assert.ok(Math.abs(w33.downforce/p.downforce-1.9)<1e-10);
+ w33.torque.forEach((point,i)=>assert.ok(Math.abs(point[1]/p.torque[i][1]-1.9)<1e-10));
+});
+test('W33 is much faster on the straight and sustains stable high-speed cornering',()=>{
+ const top=params=>{const s=createState();for(let i=0;i<10800;i++)step(s,{throttle:1},params,1/120);return s.speed*3.6;};
+ const baseline=top(p),galaxy=top(w33);assert.ok(galaxy>baseline*1.3&&galaxy>410&&galaxy<450);
+ for(const kph of [120,200,300]){const s=circle(kph,w33),old=circle(kph,p);assert.ok(s.speed*s.yawRate>old.speed*old.yawRate*1.25);assert.ok(Math.abs(Math.atan2(s.sideSpeed,s.speed))<.1);
+  for(let i=0;i<360;i++)step(s,{},w33,1/120);assert.ok(Math.abs(s.yawRate)<.03);}
+});

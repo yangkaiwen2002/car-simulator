@@ -193,3 +193,7 @@ Redistributed prepared mesh from n1lays1ngh/Racing-Game commit eb8fb43ac140aec65
 Independent fan simulation, no team endorsement. 798 kg dry reference plus 15 kg fuel; power, grip, aero, torque and handling are gameplay approximations, not team telemetry. Engine sound is a placeholder shared with existing cars.
 
 Meshopt decoder: meshoptimizer by Arseny Kapoulkine, MIT, bundled from Three.js r180 examples/jsm/libs/meshopt_decoder.module.js. License notice retained in source.
+
+W33 奔驰银河 F1 — fictional fan concept, not a real Mercedes vehicle or official team specification.
+Original galaxy/silver/teal procedural livery by OpenRoad; chassis geometry adapted at runtime from Redgrund RB19 CC BY 4.0 community model. Original branding textures removed. Uses ../RB19/model.glb, retaining original attribution and license; see ../RB19/about.txt.
+Power and torque curve are exactly 1.9 times the OpenRoad RB19 calibration; downforce coefficient also 1.9 times. This does not claim 90% faster lap times or top speed. 780 kg with fuel, extended gearing and reduced drag; fictional gameplay parameters.

@@ -10,7 +10,7 @@ const specs=configs.map(carSpecs);
 function simulate(p,seconds,input={throttle:1},state=createState(),hz=120){for(let i=0;i<seconds*hz;i++)step(state,input,p,1/hz);return state;}
 
 test('all catalog cars have distinct, finite powertrains and valid model assets',async()=>{
- assert.equal(CARS.length,12);assert.equal(new Set(specs.map(p=>p.mass)).size,CARS.length);
+ assert.equal(CARS.length,13);assert.equal(new Set(specs.map(p=>p.mass)).size,CARS.length);
  for(let i=0;i<CARS.length;i++){
   const p=specs[i];assert.ok(p.mass>500&&p.mass<2000);assert.ok(p.radius>.2&&p.radius<.4);assert.ok(p.gears.length>=4&&p.gears.length<=8);assert.ok(p.torque.length>5);
   if(CARS[i].format==='gltf'){const bytes=await readFile(new URL(`../public/vehicles/cars/${CARS[i].id}/${CARS[i].model}`,import.meta.url));if(CARS[i].model.endsWith('.glb')){assert.equal(bytes.toString('ascii',0,4),'glTF');assert.equal(bytes.readUInt32LE(8),bytes.length);}else{const g=JSON.parse(bytes);assert.equal(g.asset.version,'2.0');for(const ref of [...g.buffers,...g.images])assert.ok((await readFile(new URL(`../public/vehicles/cars/${CARS[i].id}/${ref.uri}`,import.meta.url))).length>100);}}
@@ -25,7 +25,7 @@ test('all catalog cars have distinct, finite powertrains and valid model assets'
  }
 });
 test('the cars accelerate differently and automatic gears engage',()=>{
- const runs=specs.map(p=>simulate(p,10));for(const [i,s] of runs.entries()){assert.ok(s.speed>16&&s.speed<(CARS[i].id==='RB19'?90:70));assert.ok(s.gear>1);assert.ok(s.rpm>900);assert.ok(s.distance>80);}
+ const runs=specs.map(p=>simulate(p,10));for(const [i,s] of runs.entries()){assert.ok(s.speed>16&&s.speed<(CARS[i].id==='W33'?125:CARS[i].id==='RB19'?90:70));assert.ok(s.gear>1);assert.ok(s.rpm>900);assert.ok(s.distance>80);}
  assert.ok(runs[CARS.findIndex(c=>c.id==='TC6')].speed>runs[CARS.findIndex(c=>c.id==='MI')].speed+2,'Celica must out-accelerate Mini');
 });
 test('braking stops without accidentally reversing and R requires a stop',()=>{
@@ -35,7 +35,7 @@ test('neutral cannot drive and coasting dissipates energy',()=>{
  const s=createState();setDirection(s,0);simulate(specs[0],5,{throttle:1},s);assert.equal(s.speed,0);setDirection(s,1);simulate(specs[0],5,{throttle:1},s);const before=s.speed;simulate(specs[0],5,{},s);assert.ok(s.speed<before);
 });
 test('left steering turns left, reverse steering changes yaw, and lateral grip stays bounded',()=>{
- const s=createState();simulate(specs[0],2,{throttle:.6,steer:1},s);assert.ok(s.x<4.5);assert.ok(s.yaw>0);assert.ok(Math.abs(s.lateral)<15);
+ const s=createState();simulate(specs[0],2,{throttle:.6,steer:1},s);assert.ok(s.x<4.5);assert.ok(s.yaw>0);assert.ok(Math.abs(s.lateral)<specs[0].tireGrip*(9.81+specs[0].downforce*s.speed*s.speed/specs[0].mass));
  const reverse=createState();setDirection(reverse,-1);simulate(specs[0],3,{throttle:.6,steer:1},reverse);assert.ok(reverse.yaw<0);
 });
 test('simulation is stable across 60 and 120 Hz and obstacle stops motion',()=>{

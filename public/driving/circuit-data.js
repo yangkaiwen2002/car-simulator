@@ -27,15 +27,16 @@ export function buildRoute(geo){
 export function formatLap(seconds){if(!Number.isFinite(seconds))return '—:—.———';const milliseconds=Math.round(seconds*1000);return `${Math.floor(milliseconds/60000)}:${String(Math.floor(milliseconds/1000)%60).padStart(2,'0')}.${String(milliseconds%1000).padStart(3,'0')}`;}
 export function createLapTimer(route,halfWidth,onLap=()=>{}){
  const count=60,gap=route.length/count;
- const timer={clock:0,start:null,lap:0,time:0,valid:true,reason:'',last:null,best:null,sectors:[],sectorBests:[null,null,null],reference:null,trace:[0],delta:null,nextGate:1,previous:null,previousPoint:null,offRoad:false,offTrackTime:0,trackWarning:false,wrongWay:false,progress:0};
+ const timer={clock:0,start:null,lap:0,time:0,valid:true,reason:'',last:null,best:null,sectors:[],sectorBests:[null,null,null],reference:null,trace:[0],delta:null,nextGate:1,previous:null,previousPoint:null,offRoad:false,offTrackTime:0,excursions:0,trackWarning:false,wrongWay:false,progress:0};
  function invalidate(reason){if(timer.start!==null){timer.valid=false;timer.reason||=reason;timer.delta=null;}}
  function update(x,z,dt){
   if(!Number.isFinite(dt)||dt<0||!Number.isFinite(x)||!Number.isFinite(z))return null;
   const now=route.nearest(x,z),p=now.progress,L=route.length;timer.clock+=dt;timer.progress=p;timer.offRoad=now.distance>halfWidth+.8;
+  if(timer.offRoad&&timer.offTrackTime===0&&timer.start!==null)timer.excursions++;
   timer.offTrackTime=timer.offRoad?timer.offTrackTime+dt:0;
   timer.trackWarning=timer.offRoad&&timer.start!==null;
   // Brief excursions are recoverable; deep cuts or staying outside delete the lap.
-  if(now.distance>halfWidth+6||timer.offTrackTime>.8)invalidate('驶出赛道过远或过久');
+  if(now.distance>halfWidth+6||timer.offTrackTime>2)invalidate('驶出赛道过远或过久');
   if(timer.previous!==null&&dt>0){let delta=p-timer.previous;if(delta>L/2)delta-=L;if(delta<-L/2)delta+=L;timer.wrongWay=delta<-.08;
    const jumped=Math.abs(delta)>Math.max(4,dt*110)||Math.hypot(x-timer.previousPoint.x,z-timer.previousPoint.z)>Math.max(4,dt*110);
    if(jumped)invalidate('漏过检查点');
@@ -56,7 +57,7 @@ export function createLapTimer(route,halfWidth,onLap=()=>{}){
      if(valid){timer.sectorBests=sectors.map((value,i)=>Math.min(value,timer.sectorBests[i]??Infinity));if(!timer.best||total<timer.best.time)timer.best={time:total,sectors:[...sectors],trace:[...timer.trace,total]};}
      onLap(timer.last);
     }
-    timer.start=crossingTime;timer.lap++;timer.valid=true;timer.reason='';timer.sectors=[];timer.nextGate=1;timer.trace=[0];timer.reference=timer.best?{time:timer.best.time,sectors:[...timer.best.sectors],trace:timer.best.trace?.slice()}:null;
+    timer.start=crossingTime;timer.lap++;timer.valid=true;timer.reason='';timer.sectors=[];timer.nextGate=1;timer.trace=[0];timer.excursions=0;timer.reference=timer.best?{time:timer.best.time,sectors:[...timer.best.sectors],trace:timer.best.trace?.slice()}:null;
    }
   }
   timer.time=timer.start===null?0:timer.clock-timer.start;

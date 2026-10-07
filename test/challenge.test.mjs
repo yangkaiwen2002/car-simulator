@@ -44,7 +44,7 @@ test('Nordschleife is the full north loop with continuous, finite terrain height
 test('brief run-wide recovers, but sustained excursions and reversing delete the lap',()=>{
  const route=routes[1];
  function excursion(seconds){const t=createLapTimer(route,6);feed(t,route,-35,100);for(let i=0;i<seconds*120;i++){const p=route.at(100+i/120*20),offset=8*Math.min(1,i/12,(seconds*120-1-i)/12);t.update(p.x+p.tz*offset,p.z-p.tx*offset,1/120);}const p=route.at(100+seconds*20);t.update(p.x,p.z,1/120);return t;}
- assert.equal(excursion(.4).valid,true);assert.equal(excursion(1.5).valid,false);
+ assert.equal(excursion(.4).valid,true);assert.equal(excursion(1.5).valid,true);assert.equal(excursion(2.5).valid,false);
  const t=createLapTimer(route,6);feed(t,route,-35,100);for(let d=100;d>95;d-=.2){const p=route.at(d);t.update(p.x,p.z,1/120);}assert.equal(t.valid,false);assert.equal(t.reason,'逆向行驶');
 });
 test('split comparisons and live delta use the previous valid lap, never fabricated scores',async()=>{
