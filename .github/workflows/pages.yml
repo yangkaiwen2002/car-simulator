@@ -1,4 +1,4 @@
-name: Deploy OpenRoad to GitHub Pages
+name: Deploy Myracing 我的赛车 to GitHub Pages
 on:
   push:
     branches: [main]
