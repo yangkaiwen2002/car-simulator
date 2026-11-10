@@ -1,38 +1,44 @@
+import {searchCars,parseMenuPreferences} from './driving/menu-state.js?v=0.11.0';
 import {targetsFor,resolveTarget,assessLap,earnedTargets} from './driving/challenge-targets.js?v=0.10.1';
 import * as THREE from './vendor/three.module.min.js';
 import {CARS,parseCar,carSpecs,carsInCollection} from './driving/catalog.js?v=0.9.0';
 import {loadVehicle} from './driving/joe.js';
 import {loadGltfVehicle} from './driving/gltf-vehicle.js?v=0.9.0';
-import {createCity,createGarage,makeEnvironment,STREETS} from './driving/city.js';
+import {createCity,createGarage,makeEnvironment,STREETS} from './driving/city.js?v=0.11.0';
 import {createCircuit} from './driving/circuit.js?v=0.10.1';
 import {CIRCUITS,buildRoute,createLapTimer,formatLap,timingView} from './driving/circuit-data.js?v=0.10.1';
 import {createState,step,setDirection,clamp} from './driving/physics.js?v=0.10.1';
 
 const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
-let renderer,garage,city,camera,vehicle,selected=CARS.find(c=>c.id==='MCL39'),specs,mode='garage',cabin=false,paused=false,loading=false,loadId=0;
+let menuPrefs={};
+try{menuPrefs=parseMenuPreferences(localStorage.getItem('myracing-menu'),CARS.map(c=>c.id),['city',...CIRCUITS.map(c=>c.id)]);}catch{}
+let menuSection='home',compactHud=menuPrefs.compactHud||false;
+function saveMenu(){try{localStorage.setItem('myracing-menu',JSON.stringify({car:selected.id,destination,compactHud}));}catch{}}
+
+let renderer,garage,city,camera,vehicle,selected=CARS.find(c=>c.id===(menuPrefs.car||'MCL39')),specs,mode='garage',cabin=false,paused=false,loading=false,loadId=0;
 let state=createState(),lastTime=0,accumulator=0,uiTime=0,orbit=-.8,zoom=1,lookX=0,lookY=0,seat=0,fov=70,cruise=false,quality='medium',assists=true;
-let destination='redbullring',lapTimer=null,starting=false,inspectDamage=false;const worlds=new Map();
-const keys=new Set(),touch=new Set(),cache=new Map(),thumbnails=new Map();
+let destination=menuPrefs.destination||'redbullring',lapTimer=null,starting=false,inspectDamage=false;const worlds=new Map();
+const keys=new Set(),touch=new Set(),controlPointers=new Map(),cache=new Map(),thumbnails=new Map();
 const thumbnailQueue=new Set();let thumbnailsRunning=false;
 let audioContext,audioSource,audioGain,audioCar,sound=true,volume=.18,toastTimer;
 const audioBuffers=new Map();
 const reducedMotion=matchMedia('(prefers-reduced-motion: reduce)').matches;
 function notify(message){$('#toast').textContent=message;$('#toast').hidden=false;clearTimeout(toastTimer);toastTimer=setTimeout(()=>$('#toast').hidden=true,3800);}
 function fatal(error){console.error(error);$('#fatal-message').textContent=error.message||String(error);$('#fatal').hidden=false;}
-function resetInputs(){keys.clear();touch.clear();state.keyHeld=0;state.keyDirection=0;}
+function resetInputs(){keys.clear();touch.clear();controlPointers.clear();$$('[data-control]').forEach(b=>b.classList.remove('pressed'));state.keyHeld=0;state.keyDirection=0;}
 function saveSettings(){try{localStorage.setItem('openroad-settings',JSON.stringify({fov,seat,volume,quality,sound,assists}));}catch{}}
 try{const saved=JSON.parse(localStorage.getItem('openroad-settings')||'{}');fov=clamp(Number(saved.fov)||70,55,95);seat=clamp(Number(saved.seat)||0,-.1,.14);volume=clamp(Number.isFinite(saved.volume)?saved.volume:.18,0,1);quality=['low','medium','high'].includes(saved.quality)?saved.quality:'medium';sound=saved.sound!==false;assists=saved.assists!==false;}catch{}
-$('#assists').value=assists?'on':'off';$('#quality').value=quality;$('#fov').value=fov;$('#fov-value').textContent=fov+'°';$('#seat-height').value=seat*100;$('#seat-value').textContent=seat?Math.round(seat*100)+' cm':'标准';$('#volume').value=volume*100;
+$('#assists').value=assists?'on':'off';$('#quality').value=quality;$('#fov').value=fov;$('#fov-value').textContent=fov+'°';$('#seat-height').value=seat*100;$('#seat-value').textContent=seat?Math.round(seat*100)+' cm':'标准';$('#volume').value=volume*100;$('#volume-value').textContent=Math.round(volume*100)+'%';
 function updateSoundLabel(){$('#sound-toggle').textContent='声音 '+(sound?'开':'关');$('#sound-toggle').setAttribute('aria-pressed',String(sound));}
 updateSoundLabel();
 function renderCards(filter='modern'){
- const previousScroll=$('#car-list').scrollLeft;$('#collection-count').textContent=String(carsInCollection(filter).length).padStart(2,'0');$('#car-list').replaceChildren();for(const car of carsInCollection(filter)){
+ const previousScroll=$('#car-list').scrollLeft,cars=searchCars(carsInCollection(filter),$('#car-search').value);$('#collection-count').textContent=String(cars.length).padStart(2,'0');$('#collection-empty').hidden=cars.length>0;$('#car-list').hidden=cars.length===0;$('#car-list').replaceChildren();for(const car of cars){
   const button=document.createElement('button');button.className='car-card'+(selected.id===car.id?' selected':'');button.setAttribute('aria-pressed',String(selected.id===car.id));button.setAttribute('aria-label',`选择 ${car.brand} ${car.name}`);
   button.dataset.car=car.id;const picture=document.createElement('img');picture.className='card-image';picture.alt='';if(thumbnails.has(car.id))picture.src=thumbnails.get(car.id);button.append(picture);
   const entries=[['card-brand',car.brand],['card-index',car.year?String(car.year):'CLASSIC'],['card-name',car.name],['card-arrow','↗'],['card-meta',car.type],['card-tag',car.drive]];
   for(const [className,value] of entries){const span=document.createElement('span');span.className=className;span.textContent=value;button.append(span);}button.onclick=()=>selectCar(car);$('#car-list').append(button);
  }
- $('#car-list').scrollLeft=previousScroll;requestAnimationFrame(updateCollectionArrows);
+ $('#car-list').scrollLeft=previousScroll;requestAnimationFrame(()=>{updateCollectionArrows();prepareCollection();});
 }
 
 function getCarAssets(car,progress=()=>{}){
@@ -40,44 +46,62 @@ function getCarAssets(car,progress=()=>{}){
  return cache.get(car.id);
 }
 async function prepareCollection(){
- for(const car of carsInCollection($('.filter-tabs .selected').dataset.filter))if(!thumbnails.has(car.id))thumbnailQueue.add(car.id);
- if(thumbnailsRunning)return;thumbnailsRunning=true;
- const thumbRenderer=new THREE.WebGLRenderer({alpha:true,antialias:true});thumbRenderer.setSize(360,180);thumbRenderer.outputColorSpace=THREE.SRGBColorSpace;thumbRenderer.toneMapping=THREE.ACESFilmicToneMapping;thumbRenderer.toneMappingExposure=1.05;
- const stage=new THREE.Scene();stage.environment=garage.environment;stage.environmentIntensity=.8;stage.add(new THREE.HemisphereLight('#e6edff','#3b4151',2.2));const light=new THREE.DirectionalLight('#ffffff',3);light.position.set(-4,6,-5);stage.add(light);
- const cam=new THREE.PerspectiveCamera(36,2,.1,30);cam.position.set(-5.4,2.3,-6.7);cam.lookAt(0,.5,0);
- while(thumbnailQueue.size){
-  const id=thumbnailQueue.values().next().value;thumbnailQueue.delete(id);
-  try{const car=CARS.find(c=>c.id===id),{model}=await getCarAssets(car);const clone=model.root.clone();clone.position.set(0,0,0);clone.rotation.set(0,0,0);stage.add(clone);thumbRenderer.render(stage,cam);const url=thumbRenderer.domElement.toDataURL('image/png');thumbnails.set(id,url);const img=document.querySelector(`[data-car="${id}"] .card-image`);if(img)img.src=url;stage.remove(clone);
-   if(city&&['MI','3S','MC'].includes(id))city.addParked(model,id);
-  }catch(e){console.warn('Collection preview unavailable',id,e.message);}
-  await new Promise(resolve=>setTimeout(resolve,30));
- }
- thumbRenderer.dispose();thumbRenderer.forceContextLoss();thumbnailsRunning=false;
+ // Only visible collection cards request full models. The home menu loads one car.
+ if(mode!=='garage'||menuSection!=='garage'||document.hidden||!garage)return;
+ thumbnailQueue.clear();const bounds=$('#car-list').getBoundingClientRect();
+ for(const card of $$('.car-card')){const r=card.getBoundingClientRect();if(r.right>bounds.left&&r.left<bounds.right&&!thumbnails.has(card.dataset.car))thumbnailQueue.add(card.dataset.car);}
+ if(thumbnailsRunning||!thumbnailQueue.size)return;thumbnailsRunning=true;
+ let thumbRenderer;
+ try{
+  thumbRenderer=new THREE.WebGLRenderer({alpha:true,antialias:true});thumbRenderer.setSize(360,180);thumbRenderer.outputColorSpace=THREE.SRGBColorSpace;thumbRenderer.toneMapping=THREE.ACESFilmicToneMapping;thumbRenderer.toneMappingExposure=1.05;
+  const stage=new THREE.Scene();stage.environment=garage.environment;stage.environmentIntensity=.8;stage.add(new THREE.HemisphereLight('#e6edff','#3b4151',2.2));const light=new THREE.DirectionalLight('#ffffff',3);light.position.set(-4,6,-5);stage.add(light);
+  const cam=new THREE.PerspectiveCamera(36,2,.1,30);cam.position.set(-5.4,2.3,-6.7);cam.lookAt(0,.5,0);
+  while(thumbnailQueue.size&&mode==='garage'&&menuSection==='garage'&&!document.hidden){
+   const id=thumbnailQueue.values().next().value;thumbnailQueue.delete(id);
+   try{const car=CARS.find(c=>c.id===id),{model}=await getCarAssets(car);const clone=model.root.clone();clone.position.set(0,0,0);clone.rotation.set(0,0,0);stage.add(clone);thumbRenderer.render(stage,cam);const url=thumbRenderer.domElement.toDataURL('image/png');thumbnails.set(id,url);const img=document.querySelector(`[data-car="${id}"] .card-image`);if(img)img.src=url;stage.remove(clone);
+   }catch(e){console.warn('Collection preview unavailable',id,e.message);}
+   await new Promise(resolve=>setTimeout(resolve,100));
+  }
+ }catch(e){console.warn('Collection thumbnails unavailable:',e.message);}
+ finally{thumbRenderer?.dispose();thumbRenderer?.forceContextLoss();thumbnailsRunning=false;}
 }
 function updateCollectionArrows(){const list=$('#car-list');$('#cars-prev').disabled=list.scrollLeft<2;$('#cars-next').disabled=list.scrollLeft+list.clientWidth>=list.scrollWidth-2;}
 $('#cars-prev').onclick=()=>$('#car-list').scrollBy({left:-$('#car-list').clientWidth*.8,behavior:reducedMotion?'instant':'smooth'});
 $('#cars-next').onclick=()=>$('#car-list').scrollBy({left:$('#car-list').clientWidth*.8,behavior:reducedMotion?'instant':'smooth'});
-$('#car-list').addEventListener('scroll',updateCollectionArrows,{passive:true});
+let previewTimer;
+$('#car-list').addEventListener('scroll',()=>{updateCollectionArrows();clearTimeout(previewTimer);previewTimer=setTimeout(prepareCollection,180);},{passive:true});
+function setMenuSection(section){
+ if(mode==='drive')returnGarage();menuSection=section;$('#garage').dataset.section=section;$('#collection').hidden=section!=='garage';
+ for(const [id,name] of [['home-nav','home'],['garage-nav','garage']]){const b=$('#'+id);b.classList.toggle('active',section===name);if(section===name)b.setAttribute('aria-current','page');else b.removeAttribute('aria-current');}
+ if(section==='garage'){const chosen=$('.car-card.selected');if(chosen)$('#car-list').scrollLeft=chosen.offsetLeft-$('#car-list').offsetLeft;requestAnimationFrame(()=>{updateCollectionArrows();prepareCollection();});}
+}
+$('.home-menu').addEventListener('keydown',e=>{if(!['ArrowLeft','ArrowRight'].includes(e.key))return;const buttons=[...$('.home-menu').querySelectorAll('button:not(:disabled)')],index=buttons.indexOf(e.target);if(index<0)return;e.preventDefault();buttons[(index+(e.key==='ArrowRight'?1:-1)+buttons.length)%buttons.length].focus();});
+$('#home-nav').onclick=()=>setMenuSection('home');$('#collection-open').onclick=()=>setMenuSection('garage');
+function refreshSearch(){renderCards($('.filter-tabs .selected').dataset.filter);$('#car-list').scrollLeft=0;}
+$('#car-search').addEventListener('input',refreshSearch);$('#clear-search').onclick=()=>{$('#car-search').value='';refreshSearch();$('#car-search').focus();};
+$('#car-list').addEventListener('keydown',e=>{if(!['ArrowLeft','ArrowRight','Home','End'].includes(e.key))return;const cards=$$('.car-card'),index=cards.indexOf(e.target);if(index<0)return;e.preventDefault();const next=e.key==='Home'?0:e.key==='End'?cards.length-1:Math.max(0,Math.min(cards.length-1,index+(e.key==='ArrowRight'?1:-1)));cards[next]?.focus();});
+
 
 function renderPaint(){
  $('#paint-options').replaceChildren();for(const [i,color] of (['RB19','W33','MCL39'].includes(selected.id)?[selected.color]:[selected.color,'#294d45','#902e2b','#d8c29c','#2c3034']).entries()){
-  const b=document.createElement('button');b.className='paint'+(i===0?' selected':'');b.style.backgroundColor=color;b.setAttribute('aria-label',['原色','森林绿','酒红','香槟金','石墨黑'][i]);b.title=b.getAttribute('aria-label');b.onclick=()=>{if(!vehicle||loading)return;vehicle.paint.set(color);$$('.paint').forEach(x=>x.classList.remove('selected'));b.classList.add('selected');};$('#paint-options').append(b);
+  const b=document.createElement('button');b.className='paint'+(i===0?' selected':'');b.style.backgroundColor=color;b.setAttribute('aria-label',['原色','森林绿','酒红','香槟金','石墨黑'][i]);b.title=b.getAttribute('aria-label');b.setAttribute('aria-pressed',String(i===0));b.onclick=()=>{if(!vehicle||loading)return;vehicle.paint.set(color);$$('.paint').forEach(x=>{x.classList.toggle('selected',x===b);x.setAttribute('aria-pressed',String(x===b));});};$('#paint-options').append(b);
  }
 }
 async function selectCar(car){
- const token=++loadId;loading=true;selected=car;$('#start-drive').disabled=true;$('#start-label').textContent='加载车型…';$('#preview-cabin').disabled=true;$('#car-brand').textContent=car.brand;
- $('#car-name').textContent=car.name;$('#car-era').textContent=(car.year?car.year+' · ':'')+car.era;$('#description').textContent=car.description;$('#spec-drive').textContent=car.drive;$('#spec-power').textContent='—';$('#spec-torque').textContent='—';$('#model-status').textContent='正在载入模型';$('#header-status').textContent='正在准备座驾';
+ const token=++loadId;loading=true;selected=car;saveMenu();document.body.classList.add('is-loading');$('#garage-drive').disabled=true;$('#challenge-confirm').disabled=true;$('#start-drive').disabled=true;$('#start-label').textContent='加载车型…';$('#preview-cabin').disabled=true;$('#car-brand').textContent=car.brand;
+ $('#car-name').textContent=car.name;$('#car-era').textContent=(car.year?car.year+' · ':'')+car.era;$('#description').textContent=car.description;$('#spec-drive').textContent=car.drive;$('#spec-power').textContent='—';$('#spec-torque').textContent='—';$('#spec-gears').textContent='—';$('#spec-mass').textContent='—';$('#model-status').textContent='正在载入模型';$('#header-status').textContent='正在准备座驾';
  if(vehicle)garage.remove(vehicle.root);vehicle=null;cabin=false;lookX=lookY=0;orbit=-.8;zoom=1;updatePreview();renderCards($('.filter-tabs .selected').dataset.filter);renderPaint();
  try{
   const pending=getCarAssets(car,progress=>{if(token===loadId)$('#model-status').textContent=`模型加载 ${Math.round(progress*100)}%`;});
   const result=await pending;if(token!==loadId)return;
   vehicle=result.model;specs=result.data;vehicle.paint.set(car.color);vehicle.root.position.set(0,0,0);vehicle.root.rotation.set(0,0,0);vehicle.source.rotation.set(-Math.PI/2,0,0);garage.add(vehicle.root);state=createState();state.rpm=specs.idle;vehicle.update(state,0);
-  $('#spec-gears').textContent=specs.gears.length;$('#spec-mass').textContent=Math.round(specs.mass).toLocaleString();$('#spec-power').textContent=Math.round(specs.power);$('#spec-torque').textContent=Math.round(specs.peakTorque);$('#start-drive').disabled=false;$('#challenge-confirm').disabled=false;$('#preview-cabin').disabled=false;$('#start-label').textContent=destination==='city'?'开始驾驶':'开始挑战';$('#model-status').textContent=car.quality;$('#header-status').textContent='FREE DRIVE · 随时出发';loading=false;
- }catch(error){if(token!==loadId)return;loading=false;$('#model-status').textContent='载入失败';$('#start-label').textContent='点击重试';$('#start-drive').disabled=false;notify(error.message);}
+  $('#spec-gears').textContent=specs.gears.length;$('#spec-mass').textContent=Math.round(specs.mass).toLocaleString();$('#spec-power').textContent=Math.round(specs.power);$('#spec-torque').textContent=Math.round(specs.peakTorque);$('#start-drive').disabled=false;$('#challenge-confirm').disabled=false;$('#preview-cabin').disabled=false;$('#start-label').textContent=destination==='city'?'自由驾驶':'开始挑战';$('#model-status').textContent=car.quality;$('#header-status').textContent='座驾就绪 · 随时出发';loading=false;document.body.classList.remove('is-loading');$('#garage-drive').disabled=false;
+ }catch(error){if(token!==loadId)return;loading=false;document.body.classList.remove('is-loading');$('#garage-drive').disabled=false;$('#model-status').textContent='载入失败 · 点击出发重试';$('#start-label').textContent='点击重试';$('#start-drive').disabled=false;notify(error.message);}
 }
 function updatePreview(){$('#preview-mode').textContent=cabin?'座舱视角':'外观视角';$('#preview-cabin').textContent=cabin?'返回外观 ↗':'查看内饰 ↗';$('#drag-hint').textContent=cabin?'拖动环顾 · C 视线回正':'拖动旋转 · 滚轮缩放';}
+function setDriveInert(value){for(const child of $('#drive-ui').children)if(child.id!=='pause-overlay')child.inert=value;}
 function setPaused(value,reason='驾驶已暂停'){
- if(mode!=='drive')return;paused=value;resetInputs();$('#pause-overlay').hidden=!value;$('#pause-reason').textContent=reason;$('#pause-button').textContent=value?'继续':'暂停';if(value&&audioGain)audioGain.gain.setTargetAtTime(0,audioContext.currentTime,.1);lastTime=0;accumulator=0;
+ if(mode!=='drive')return;paused=value;setDriveInert(value);resetInputs();$('#pause-overlay').hidden=!value;$('#pause-reason').textContent=reason;$('#pause-button').textContent=value?'继续 ▷':'暂停 Ⅱ';$('#pause-button').setAttribute('aria-pressed',String(value));$('#drive-tools').hidden=true;$('#drive-menu-toggle').setAttribute('aria-expanded','false');if(value)$('#resume-button').focus();else document.activeElement?.blur();if(value&&audioGain)audioGain.gain.setTargetAtTime(0,audioContext.currentTime,.1);lastTime=0;accumulator=0;
 }
 async function startAudio(){
  try{
@@ -104,19 +128,19 @@ function resetSession(){
 }
 async function startDriving(){
  if(starting)return;if(!vehicle||loading){if(!loading)selectCar(selected);return;}
- const token=loadId,chosen=destination;starting=true;$('#start-drive').disabled=true;$('#start-label').textContent='准备驾驶场景…';
+ const token=loadId,chosen=destination;starting=true;$('#start-drive').disabled=true;$('#garage-drive').disabled=true;$('#challenge-confirm').disabled=true;$('#start-label').textContent='准备驾驶场景…';
  try{
   if(!worlds.has(chosen)){const world=chosen==='city'?createCity():await createCircuit(CIRCUITS.find(c=>c.id===chosen));world.scene.environment=garage.environment;world.scene.environmentIntensity=.4;worlds.set(chosen,world);if(chosen==='city')for(const id of ['MI','3S','MC'])getCarAssets(CARS.find(c=>c.id===id)).then(({model})=>world.addParked(model,id)).catch(()=>{});}
-  if(token!==loadId||chosen!==destination)return;city=worlds.get(chosen);garage.remove(vehicle.root);city.scene.add(vehicle.root);resetSession();resetInputs();cruise=false;lookX=lookY=0;paused=false;inspectDamage=false;$('#damage-view').textContent='查看车身';mode='drive';cabin=false;
-  $('#garage').hidden=true;$('#drive-ui').hidden=false;$('#pause-overlay').hidden=true;document.body.classList.add('driving');$('#drive-brand').textContent=selected.brand;$('#drive-name').textContent=selected.name;$('#drive-cabin').textContent=selected.cabin+' · 第一人称';$('#pause-button').textContent='暂停';updateCruise();updateDirection();resize();startAudio();notify(lapTimer?'向前驶过黑白计时线，开始计时；轻微跑宽次数不限，每次 2 秒返回；明显切弯仍无效':'W / ↑ 加速，S / ↓ 刹车；A D / ← → 转向');
- }catch(error){notify(error.message);}finally{starting=false;$('#start-drive').disabled=loading;$('#start-label').textContent=destination==='city'?'开始驾驶':'开始挑战';}
+  if(token!==loadId||chosen!==destination)return;city=worlds.get(chosen);garage.remove(vehicle.root);city.scene.add(vehicle.root);resetSession();resetInputs();cruise=false;lookX=lookY=0;paused=false;inspectDamage=false;$('#damage-view').textContent='查看车身';mode='drive';cabin=false;document.activeElement?.blur();
+  setDriveInert(false);$('#garage').hidden=true;$('#drive-ui').hidden=false;$('#pause-overlay').hidden=true;document.body.classList.add('driving');$('#drive-brand').textContent=selected.brand;$('#drive-name').textContent=selected.name;$('#drive-cabin').textContent=selected.cabin+' · 第一人称';$('#pause-button').textContent='暂停 Ⅱ';$('#pause-button').setAttribute('aria-pressed','false');updateHudMode();updateCruise();updateDirection();resize();startAudio();notify(lapTimer?'向前驶过黑白计时线，开始计时；轻微跑宽次数不限，每次 2 秒返回；明显切弯仍无效':'W / ↑ 加速，S / ↓ 刹车；A D / ← → 转向');
+ }catch(error){notify(error.message);}finally{starting=false;$('#start-drive').disabled=loading;$('#garage-drive').disabled=loading;$('#challenge-confirm').disabled=loading||!vehicle;$('#start-label').textContent=destination==='city'?'自由驾驶':'开始挑战';}
 }
 function returnGarage(){
- if(mode!=='drive')return;mode='garage';paused=false;cruise=false;resetInputs();audioSource?.stop();audioSource=null;audioCar=null;
+ if(mode!=='drive')return;setDriveInert(false);mode='garage';paused=false;cruise=false;resetInputs();audioSource?.stop();audioSource=null;audioCar=null;
  city.scene.remove(vehicle.root);vehicle.root.position.set(0,0,0);vehicle.root.rotation.set(0,0,0);vehicle.source.rotation.set(-Math.PI/2,0,0);garage.add(vehicle.root);state=createState();vehicle.update(state,0);cabin=false;lookX=lookY=0;updatePreview();
- $('#garage').hidden=false;$('#drive-ui').hidden=true;document.body.classList.remove('driving');resize();
+ $('#garage').hidden=false;$('#drive-ui').hidden=true;document.body.classList.remove('driving');$('#drive-tools').hidden=true;$('#drive-menu-toggle').setAttribute('aria-expanded','false');setMenuSection('home');resize();$('#home-nav').focus();
 }
-function updateDirection(){$$('[data-direction]').forEach(b=>b.classList.toggle('selected',Number(b.dataset.direction)===state.direction));}
+function updateDirection(){$$('[data-direction]').forEach(b=>{const active=Number(b.dataset.direction)===state.direction;b.classList.toggle('selected',active);b.setAttribute('aria-pressed',String(active));});}
 function direction(value){if(mode!=='drive')return;if(!setDirection(state,value)){notify('请先停稳，再切换挡位');return;}cruise=false;updateDirection();updateCruise();}
 function updateCruise(){$('#cruise-button').setAttribute('aria-pressed',String(cruise));$('#cruise-button').innerHTML=cruise?'巡航 35 km/h · 点击取消 <span>×</span>':'启用 35 km/h 巡航 <span>→</span>';}
 function input(){
@@ -129,7 +153,14 @@ function input(){
  return {digital:true,precision:gentle,assists,throttle,brake:cruise?Math.max(brake,clamp((state.speed-35/3.6)*.3,0,.4)):brake,handbrake,steer:(keys.has('KeyA')||keys.has('ArrowLeft')||touch.has('left')?1:0)-(keys.has('KeyD')||keys.has('ArrowRight')||touch.has('right')?1:0)};
 }
 $('#damage-view').onclick=()=>{inspectDamage=!inspectDamage;$('#damage-view').textContent=inspectDamage?'返回座舱':'查看车身';};
-$('#start-drive').onclick=()=>destination==='city'?startDriving():showChallenges();$('#return-garage').onclick=returnGarage;$('#garage-nav').onclick=returnGarage;
+function launchDrive(){if(loading||starting)return;if(!vehicle){selectCar(selected);return;}destination==='city'?startDriving():showChallenges();}
+$('#start-drive').onclick=$('#garage-drive').onclick=launchDrive;$('#return-garage').onclick=returnGarage;$('#garage-nav').onclick=()=>setMenuSection('garage');
+$('#reset-view').onclick=()=>{orbit=-.8;zoom=1;lookX=lookY=0;notify(cabin?'座舱视线已回正':'展示视角已重置');};
+function updateHudMode(){$('#drive-ui').classList.toggle('compact-hud',compactHud);$('#hud-toggle').setAttribute('aria-pressed',String(compactHud));$('#hud-toggle').textContent=compactHud?'完整 HUD':'精简 HUD';}
+$('#hud-toggle').onclick=()=>{compactHud=!compactHud;saveMenu();updateHudMode();};
+$('#drive-menu-toggle').onclick=()=>{const open=$('#drive-tools').hidden;$('#drive-tools').hidden=!open;$('#drive-menu-toggle').setAttribute('aria-expanded',String(open));};
+$('#pause-garage').onclick=returnGarage;
+
 $('#preview-cabin').onclick=()=>{cabin=!cabin;lookX=lookY=0;updatePreview();};
 $$('[data-filter]').forEach(b=>b.onclick=()=>{$$('[data-filter]').forEach(x=>{x.classList.toggle('selected',x===b);x.setAttribute('aria-pressed',String(x===b));});renderCards(b.dataset.filter);$('#car-list').scrollLeft=0;updateCollectionArrows();prepareCollection();});
 $('#reset-car').onclick=()=>{resetSession();cruise=false;lookX=lookY=0;resetInputs();updateDirection();updateCruise();notify(lapTimer?'车辆已修复，重新驶过计时线开始挑战':'车辆已修复并返回出发点');};
@@ -138,30 +169,33 @@ $('#cruise-button').onclick=()=>{if(paused)return;if(state.direction!==1){notify
 $$('[data-direction]').forEach(b=>b.onclick=()=>direction(Number(b.dataset.direction)));
 $('#sound-toggle').onclick=()=>{sound=!sound;updateSoundLabel();saveSettings();if(sound)startAudio();};
 const openDialog=id=>{if(mode==='drive')setPaused(true,'关闭窗口后，点击继续驾驶');$(id).showModal();};
-$('#guide-open').onclick=()=>openDialog('#guide-dialog');$('#about-open').onclick=$('#sources-open').onclick=()=>openDialog('#about-dialog');$('#settings-open').onclick=$('#drive-settings').onclick=()=>openDialog('#settings-dialog');
+$('#guide-open').onclick=()=>openDialog('#guide-dialog');$('#sources-open').onclick=()=>openDialog('#about-dialog');$('#settings-open').onclick=$('#drive-settings').onclick=$('#pause-settings').onclick=()=>openDialog('#settings-dialog');
 $$('.close-dialog').forEach(b=>b.onclick=()=>b.closest('dialog').close());$$('dialog').forEach(d=>d.addEventListener('click',e=>{if(e.target===d){const r=d.getBoundingClientRect();if(e.clientX<r.left||e.clientX>r.right||e.clientY<r.top||e.clientY>r.bottom)d.close();}}));
 $('#assists').onchange=e=>{assists=e.target.value==='on';saveSettings();if(mode==='drive'){resetSession();cruise=false;resetInputs();updateCruise();notify('驾驶模式已切换，挑战重新开始');}};
 $('#quality').onchange=e=>{quality=e.target.value;resize();renderer.shadowMap.enabled=quality!=='low';renderer.shadowMap.needsUpdate=true;saveSettings();};
 $('#fov').oninput=e=>{fov=Number(e.target.value);$('#fov-value').textContent=fov+'°';saveSettings();};
 $('#seat-height').oninput=e=>{seat=Number(e.target.value)/100;$('#seat-value').textContent=seat?Math.round(seat*100)+' cm':'标准';saveSettings();};
-$('#volume').oninput=e=>{volume=Number(e.target.value)/100;saveSettings();};
-const handled=['KeyW','KeyA','KeyS','KeyD','ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Space','KeyQ','KeyE','KeyC','KeyR','KeyP','Escape','ShiftLeft','ShiftRight'];
+$('#volume').oninput=e=>{volume=Number(e.target.value)/100;$('#volume-value').textContent=Math.round(volume*100)+'%';saveSettings();};
+const handled=['KeyW','KeyA','KeyS','KeyD','ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Space','KeyQ','KeyE','KeyC','KeyR','KeyP','KeyH','Escape','ShiftLeft','ShiftRight'];
 addEventListener('keydown',e=>{
  if($('dialog[open]')||['INPUT','SELECT','TEXTAREA'].includes(e.target.tagName))return;
+ if(paused&&e.code==='Tab'){const buttons=[...$('#pause-overlay').querySelectorAll('button')],first=buttons[0],last=buttons.at(-1);if(e.shiftKey&&document.activeElement===first){e.preventDefault();last.focus();}else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first.focus();}return;}
+ if(e.target.closest('button,a')&&['Space','Enter'].includes(e.code))return;
  if((mode==='drive'||cabin)&&handled.includes(e.code))e.preventDefault();
  if(e.code==='KeyC'){lookX=lookY=0;return;}
- if(mode!=='drive'){if(e.code==='Enter'&&!e.repeat&&e.target===document.body)startDriving();return;}
+ if(mode!=='drive'){if(e.code==='Escape'){if(cabin){cabin=false;updatePreview();}else setMenuSection('home');}if(e.code==='Enter'&&!e.repeat&&e.target===document.body)launchDrive();return;}
+ if(e.code==='KeyH'&&!e.repeat){$('#hud-toggle').click();return;}
  if(e.code==='KeyP'||e.code==='Escape'){if(!e.repeat)setPaused(!paused);return;}
  if(e.code==='KeyR'){if(!e.repeat)direction(state.direction<0?1:-1);return;}
  if(!paused)keys.add(e.code);
 });
 addEventListener('keyup',e=>keys.delete(e.code));addEventListener('blur',()=>{resetInputs();if(mode==='drive')setPaused(true,'窗口已失去焦点，车辆已暂停');});
-document.addEventListener('visibilitychange',()=>{if(document.hidden&&mode==='drive')setPaused(true,'页面已切换，车辆已暂停');});
-$$('[data-control]').forEach(b=>{b.addEventListener('pointerdown',e=>{e.preventDefault();if(paused)return;b.setPointerCapture(e.pointerId);touch.add(b.dataset.control);});for(const type of ['pointerup','pointercancel','lostpointercapture'])b.addEventListener(type,()=>touch.delete(b.dataset.control));});
+document.addEventListener('visibilitychange',()=>{if(document.hidden&&mode==='drive')setPaused(true,'页面已切换，车辆已暂停');if(!document.hidden)prepareCollection();});
+$$('[data-control]').forEach(b=>{b.addEventListener('pointerdown',e=>{e.preventDefault();if(paused)return;b.setPointerCapture(e.pointerId);controlPointers.set(e.pointerId,b.dataset.control);touch.add(b.dataset.control);b.classList.add('pressed');});for(const type of ['pointerup','pointercancel','lostpointercapture'])b.addEventListener(type,e=>{controlPointers.delete(e.pointerId);if(![...controlPointers.values()].includes(b.dataset.control)){touch.delete(b.dataset.control);b.classList.remove('pressed');}});});
 let drag=null;
-$('#viewport').addEventListener('pointerdown',e=>{drag={x:e.clientX,y:e.clientY,id:e.pointerId};renderer.domElement.setPointerCapture(e.pointerId);});
+$('#viewport').addEventListener('pointerdown',e=>{if(paused||!renderer)return;$('#drive-tools').hidden=true;$('#drive-menu-toggle').setAttribute('aria-expanded','false');drag={x:e.clientX,y:e.clientY,id:e.pointerId};renderer.domElement.setPointerCapture(e.pointerId);});
 $('#viewport').addEventListener('pointermove',e=>{if(!drag||paused)return;const dx=e.clientX-drag.x,dy=e.clientY-drag.y;drag.x=e.clientX;drag.y=e.clientY;if((mode==='drive'&&!inspectDamage)||cabin){lookX=clamp(lookX-dx*.004,-1.5,1.5);lookY=clamp(lookY-dy*.003,-.5,.45);}else orbit-=dx*.008;});
-for(const name of ['pointerup','pointercancel'])$('#viewport').addEventListener(name,()=>drag=null);
+for(const name of ['pointerup','pointercancel','lostpointercapture'])$('#viewport').addEventListener(name,()=>drag=null);
 $('#viewport').addEventListener('wheel',e=>{if(mode==='garage'&&!cabin){e.preventDefault();zoom=clamp(zoom+e.deltaY*.0006,.65,1.4);}},{passive:false});
 function resize(){if(!renderer)return;renderer.setPixelRatio(Math.min(devicePixelRatio,quality==='low'?1:quality==='high'?2:1.5));renderer.setSize(innerWidth,innerHeight);updateCollectionArrows();camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();}
 const localEye=new THREE.Vector3(),target=new THREE.Vector3();
@@ -169,10 +203,10 @@ function moveCamera(time){
  if(!vehicle)return;
  if(mode==='drive'&&inspectDamage){camera.clearViewOffset();camera.fov=48;const angle=state.yaw+orbit;camera.position.set(state.x+Math.sin(angle)*7.5,(state.groundHeight||0)+3.2,state.z-Math.cos(angle)*7.5);camera.lookAt(state.x,(state.groundHeight||0)+.65,state.z);}
  else if(mode==='garage'&&!cabin){
-  const angle=orbit+(reducedMotion||drag?0:Math.sin(time*.08)*.045),dist=(innerWidth<761?15.5:8.8)*zoom;
-  camera.fov=38;camera.position.set(Math.sin(angle)*dist,(innerWidth<761?4.2:2.8)*zoom,-Math.cos(angle)*dist);camera.lookAt(0,.62,0);camera.clearViewOffset();
-  if(innerWidth>760)camera.setViewOffset(innerWidth,innerHeight,-innerWidth*.16,innerHeight*.10,innerWidth,innerHeight);
-  else camera.setViewOffset(innerWidth,innerHeight,0,innerHeight*.095,innerWidth,innerHeight);
+  const narrow=innerWidth<761&&innerHeight>540;const angle=orbit+(reducedMotion||drag?0:Math.sin(time*.08)*.045),dist=(narrow?14.5:9.7)*zoom;
+  camera.fov=38;camera.position.set(Math.sin(angle)*dist,(narrow?4.5:2.6)*zoom,-Math.cos(angle)*dist);camera.lookAt(0,.62,0);camera.clearViewOffset();
+  if(!narrow)camera.setViewOffset(innerWidth,innerHeight,-innerWidth*(menuSection==='home'?.13:.16),innerHeight*.04,innerWidth,innerHeight);
+  else camera.setViewOffset(innerWidth,innerHeight,0,innerHeight*.005,innerWidth,innerHeight);
  }else{
   camera.clearViewOffset();camera.fov=fov+(assists?clamp((Math.abs(state.speed)-15)/30,0,1)*5:0);localEye.copy(vehicle.eye);localEye.y+=seat;
   localEye.applyEuler(vehicle.root.rotation);camera.position.copy(vehicle.root.position).add(localEye);const pulse=state.impactPulse||0;camera.position.y+=Math.sin(time*49)*pulse*.032;camera.position.x+=Math.sin(time*37)*pulse*.018;
@@ -185,13 +219,13 @@ function moveCamera(time){
 }
 const map=$('#minimap').getContext('2d');
 function drawMap(){
- if(city?.route){const route=city.route,b=route.bounds,w=260,h=190,pad=15,scale=Math.min((w-pad*2)/(b.maxX-b.minX),(h-pad*2)/(b.maxZ-b.minZ)),ox=(w-(b.maxX-b.minX)*scale)/2-b.minX*scale,oz=(h-(b.maxZ-b.minZ)*scale)/2-b.minZ*scale;map.clearRect(0,0,w,h);map.strokeStyle='#77899e';map.lineWidth=3;map.beginPath();route.points.forEach((p,i)=>i?map.lineTo(p.x*scale+ox,p.z*scale+oz):map.moveTo(p.x*scale+ox,p.z*scale+oz));map.closePath();map.stroke();const line=route.at(0);map.fillStyle='#fff';map.fillRect(line.x*scale+ox-3,line.z*scale+oz-3,6,6);map.fillStyle='#dcf87d';map.beginPath();map.arc(state.x*scale+ox,state.z*scale+oz,4,0,Math.PI*2);map.fill();return;}
+ if(city?.route){const route=city.route,b=route.bounds,w=260,h=190,pad=15,scale=Math.min((w-pad*2)/(b.maxX-b.minX),(h-pad*2)/(b.maxZ-b.minZ)),ox=(w-(b.maxX-b.minX)*scale)/2-b.minX*scale,oz=(h-(b.maxZ-b.minZ)*scale)/2-b.minZ*scale;map.clearRect(0,0,w,h);map.strokeStyle='#77899e';map.lineWidth=3;map.beginPath();route.points.forEach((p,i)=>i?map.lineTo(p.x*scale+ox,p.z*scale+oz):map.moveTo(p.x*scale+ox,p.z*scale+oz));map.closePath();map.stroke();const line=route.at(0);map.fillStyle='#fff';map.fillRect(line.x*scale+ox-3,line.z*scale+oz-3,6,6);map.fillStyle='#f32483';map.beginPath();map.arc(state.x*scale+ox,state.z*scale+oz,4,0,Math.PI*2);map.fill();return;}
 
  const w=260,h=190,scale=.38;map.clearRect(0,0,w,h);map.fillStyle='#141c28';map.fillRect(0,0,w,h);map.save();map.translate(w/2,h/2);map.scale(scale,scale);map.translate(-state.x,-state.z);
  map.fillStyle='#2a3443';for(let ix=0;ix<6;ix++)for(let iz=0;iz<6;iz++)map.fillRect(STREETS[ix]+13,STREETS[iz]+13,54,54);
  map.strokeStyle='#6d7a8d';map.lineWidth=2;for(const v of STREETS){map.beginPath();map.moveTo(v,-285);map.lineTo(v,285);map.moveTo(-285,v);map.lineTo(285,v);map.stroke();}
- map.fillStyle='#436265';map.fillRect(302,-700,700,1400);map.strokeStyle='#e0fd78';map.lineWidth=4;map.beginPath();map.moveTo(0,160);map.lineTo(0,-160);map.lineTo(160,-160);map.stroke();
- map.restore();map.save();map.translate(w/2,h/2);map.rotate(-state.yaw);map.fillStyle='#e0fd78';map.beginPath();map.moveTo(0,-9);map.lineTo(6,7);map.lineTo(0,4);map.lineTo(-6,7);map.closePath();map.fill();map.restore();
+ map.fillStyle='#436265';map.fillRect(302,-700,700,1400);map.strokeStyle='#f32483';map.lineWidth=4;map.beginPath();map.moveTo(0,160);map.lineTo(0,-160);map.lineTo(160,-160);map.stroke();
+ map.restore();map.save();map.translate(w/2,h/2);map.rotate(-state.yaw);map.fillStyle='#f32483';map.beginPath();map.moveTo(0,-9);map.lineTo(6,7);map.lineTo(0,4);map.lineTo(-6,7);map.closePath();map.fill();map.restore();
 }
 function updateHUD(i){
  $('#handling-state').textContent=state.stabilityActive?'稳定辅助介入':state.tractionCut>.08?'牵引控制介入':state.wheelspin>.12?'驱动轮打滑':Math.abs(state.frontSlip)>.12?'前轮抓地接近极限':Math.abs(state.rearSlip)>.12?'后轮侧滑':assists?'公路模式 · 流畅易控':'挑战模式 · 自由操控';
@@ -211,7 +245,7 @@ function updateHUD(i){
 }
 let lastCollision=0;
 function animate(timestamp){
- requestAnimationFrame(animate);if(!renderer)return;
+ requestAnimationFrame(animate);if(!renderer||document.hidden){lastTime=0;return;}
  const dt=lastTime?Math.min((timestamp-lastTime)/1000,.1):0;lastTime=timestamp;
  if(vehicle&&mode==='drive'){
   const controls=input();
@@ -224,12 +258,18 @@ function animate(timestamp){
 try{
  renderer=new THREE.WebGLRenderer({antialias:true,powerPreference:'high-performance'});renderer.outputColorSpace=THREE.SRGBColorSpace;renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=.95;renderer.shadowMap.enabled=quality!=='low';renderer.shadowMap.type=THREE.PCFSoftShadowMap;
  $('#viewport').append(renderer.domElement);renderer.domElement.addEventListener('webglcontextlost',e=>{e.preventDefault();if(mode==='drive')setPaused(true);fatal(new Error('图形渲染已中断，请关闭其他占用显卡的页面后重新载入。'));});
- garage=createGarage();garage.environment=makeEnvironment(renderer);garage.environmentIntensity=.65;camera=new THREE.PerspectiveCamera(38,innerWidth/innerHeight,.025,5000);resize();addEventListener('resize',resize);renderCards();selectCar(selected).then(prepareCollection);requestAnimationFrame(animate);
+ garage=createGarage();garage.environment=makeEnvironment(renderer);garage.environmentIntensity=.65;camera=new THREE.PerspectiveCamera(38,innerWidth/innerHeight,.025,5000);resize();addEventListener('resize',resize);const initialFilter=carsInCollection('modern').some(c=>c.id===selected.id)?'modern':'classic';$$('[data-filter]').forEach(b=>{const active=b.dataset.filter===initialFilter;b.classList.toggle('selected',active);b.setAttribute('aria-pressed',String(active));});renderCards(initialFilter);selectCar(selected);requestAnimationFrame(animate);
 }catch(error){fatal(new Error('无法启动三维画面。请使用支持 WebGL 2 的浏览器并开启硬件加速。'+error.message));}
 
-$('#destination-open').onclick=()=>openDialog('#destination-dialog');
-$$('[data-destination]').forEach(button=>button.onclick=()=>{destination=button.dataset.destination;const info=CIRCUITS.find(c=>c.id===destination);$('#destination-title').textContent=info?.title||'HARBOR CITY';$('#destination-subtitle').textContent=info?`${info.name} · ${(info.length/1000).toFixed(3)} km · 计时挑战`:'海港城 · 自由驾驶';$('#start-label').textContent=info?'开始挑战':'开始驾驶';$$('[data-destination]').forEach(b=>b.setAttribute('aria-pressed',String(b===button)));$('#destination-dialog').close();if(info)showChallenges();});
-for(const info of CIRCUITS)fetch(`./circuits/${info.id}.geojson`).then(r=>r.json()).then(geo=>{const route=buildRoute(geo),b=route.bounds,svg=document.querySelector(`[data-track-map="${info.id}"]`);svg.setAttribute('viewBox',`${b.minX-45} ${b.minZ-45} ${b.maxX-b.minX+90} ${b.maxZ-b.minZ+90}`);const path=document.createElementNS('http://www.w3.org/2000/svg','path');path.setAttribute('d',route.points.map((p,i)=>`${i?'L':'M'}${p.x},${p.z}`).join(' ')+'Z');path.setAttribute('fill','none');path.setAttribute('stroke','currentColor');path.setAttribute('stroke-width','22');path.setAttribute('stroke-linejoin','round');svg.append(path);}).catch(()=>{});
+$('#destination-open').onclick=$('#events-nav').onclick=()=>openDialog('#destination-dialog');
+function updateDestination(){
+ const info=CIRCUITS.find(c=>c.id===destination);$('#destination-title').textContent=info?.title||'HARBOR CITY';$('#destination-subtitle').textContent=info?`${info.name} · ${(info.length/1000).toFixed(3)} km · 计时挑战`:'海港城 · 自由驾驶';$('#start-destination').textContent=info?.name||'海港城 · 自由探索';if(!loading&&!starting)$('#start-label').textContent=info?'开始挑战':'自由驾驶';
+ $$('[data-destination]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.destination===destination)));
+ const source=document.querySelector(`[data-track-map="${destination}"]`),map=$('#destination-map');map.replaceChildren();if(source){map.setAttribute('viewBox',source.getAttribute('viewBox')||'0 0 120 80');for(const child of source.children)map.append(child.cloneNode(true));}
+}
+$$('[data-destination]').forEach(button=>button.onclick=()=>{destination=button.dataset.destination;saveMenu();updateDestination();$('#destination-dialog').close();notify(destination==='city'?'已选择海港城 · 点击自由驾驶出发':'场地已选择 · 点击开始挑战设置目标');});
+
+for(const info of CIRCUITS)fetch(`./circuits/${info.id}.geojson`).then(r=>r.json()).then(geo=>{const route=buildRoute(geo),b=route.bounds,svg=document.querySelector(`[data-track-map="${info.id}"]`);svg.setAttribute('viewBox',`${b.minX-45} ${b.minZ-45} ${b.maxX-b.minX+90} ${b.maxZ-b.minZ+90}`);const path=document.createElementNS('http://www.w3.org/2000/svg','path');path.setAttribute('d',route.points.map((p,i)=>`${i?'L':'M'}${p.x},${p.z}`).join(' ')+'Z');path.setAttribute('fill','none');path.setAttribute('stroke','currentColor');path.setAttribute('stroke-width','22');path.setAttribute('stroke-linejoin','round');svg.append(path);if(info.id===destination)updateDestination();}).catch(()=>{});
 
 const targetChoices={};
 function currentTarget(){return resolveTarget(destination,targetChoices[destination]);}
@@ -251,7 +291,7 @@ function showChallenges(){
   button.append(label,time,caption,status);button.onclick=()=>{targetChoices[destination]=target.id;try{localStorage.setItem('openroad-target-v1-'+destination,target.id);}catch{}container.querySelectorAll('button').forEach(b=>b.setAttribute('aria-pressed',String(b===button)));updateChallengeHUD();};row.append(button);
   if(target.source){const source=document.createElement('a');source.href=target.source;source.target='_blank';source.rel='noreferrer';source.textContent='核对官方来源 ↗';row.append(source);}container.append(row);
  }
- $('#challenge-confirm').disabled=loading;$('#challenge-confirm').textContent=mode==='drive'?'继续挑战 ↗':'带着目标出发 ↗';openDialog('#challenge-dialog');
+ $('#challenge-confirm').disabled=loading||!vehicle||starting;$('#challenge-confirm').textContent=mode==='drive'?'继续挑战 ↗':'带着目标出发 ↗';openDialog('#challenge-dialog');
 }
 function updateChallengeHUD(){
  const target=currentTarget();if(!target)return;
@@ -262,8 +302,6 @@ function updateChallengeHUD(){
 }
 $('#challenge-open').onclick=showChallenges;
 $('#challenge-confirm').onclick=()=>{if(loading)return;$('#challenge-dialog').close();if(mode==='drive'){setPaused(false);startAudio();}else startDriving();};
-// Offer the wide beginner circuit immediately; the city stays selectable.
-const initialCircuit=CIRCUITS.find(c=>c.id===destination);
-$('#destination-title').textContent=initialCircuit.title;$('#destination-subtitle').textContent=initialCircuit.name+' · 入门推荐 · 16 米宽';
-$$('[data-destination]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.destination===destination)));
+// Remember menu choices without changing the existing records/settings storage.
+updateDestination();updateHudMode();
 try{targetChoices[destination]=localStorage.getItem('openroad-target-v1-'+destination);}catch{}

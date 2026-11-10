@@ -1,4 +1,5 @@
-OPENROAD — Third-party notices and provenance
+MYRACING / 我的赛车 — Third-party notices and provenance
+Previously released as OpenRoad; all original attribution below is retained.
 
 Project source code: GPL-3.0-only. See LICENSE.txt.
 No association with or endorsement from vehicle manufacturers is implied.

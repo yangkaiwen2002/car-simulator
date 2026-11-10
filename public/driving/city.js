@@ -97,13 +97,21 @@ export function createCity(){
 }
 
 export function createGarage(){
- const scene=new THREE.Scene();scene.background=new THREE.Color('#111722');scene.fog=new THREE.Fog('#111722',16,40);
- scene.add(new THREE.HemisphereLight('#dce9f1','#1c253a',1.5));
- const key=new THREE.DirectionalLight('#e9f3ff',2.4);key.position.set(-3,7,-3);key.castShadow=true;key.shadow.mapSize.set(2048,2048);key.shadow.camera.left=-6;key.shadow.camera.right=6;key.shadow.camera.top=6;key.shadow.camera.bottom=-6;key.shadow.normalBias=.015;scene.add(key);
- const rim=new THREE.DirectionalLight('#aac6f7',1.6);rim.position.set(4,3,5);scene.add(rim);
- const floor=new THREE.Mesh(new THREE.PlaneGeometry(200,200),new THREE.MeshStandardMaterial({color:'#192333',roughness:.58}));floor.rotation.x=-Math.PI/2;floor.position.y=-.012;floor.receiveShadow=true;scene.add(floor);
- const platform=new THREE.Mesh(new THREE.CylinderGeometry(3.5,3.5,.035,100),new THREE.MeshStandardMaterial({color:'#263142',metalness:.4,roughness:.38}));platform.position.y=-.023;platform.receiveShadow=true;scene.add(platform);
- const circle=new THREE.Mesh(new THREE.TorusGeometry(3.55,.008,4,120),new THREE.MeshBasicMaterial({color:'#61748e'}));circle.rotation.x=-Math.PI/2;scene.add(circle);
+ const scene=new THREE.Scene();scene.background=new THREE.Color('#23212d');scene.fog=new THREE.Fog('#23212d',15,38);
+ scene.add(new THREE.HemisphereLight('#f4e9fb','#292237',1.65));
+ const key=new THREE.DirectionalLight('#fff2e8',2.8);key.position.set(-3,7,-3);key.castShadow=true;key.shadow.mapSize.set(2048,2048);key.shadow.camera.left=-6;key.shadow.camera.right=6;key.shadow.camera.top=6;key.shadow.camera.bottom=-6;key.shadow.normalBias=.015;scene.add(key);
+ const rim=new THREE.DirectionalLight('#c9c5ff',2);rim.position.set(4,3,5);scene.add(rim);
+ const fill=new THREE.DirectionalLight('#f7b6d1',.45);fill.position.set(-5,2,4);scene.add(fill);
+ const floor=new THREE.Mesh(new THREE.PlaneGeometry(200,200),new THREE.MeshStandardMaterial({color:'#36313e',metalness:.3,roughness:.48}));floor.rotation.x=-Math.PI/2;floor.position.y=-.018;floor.receiveShadow=true;scene.add(floor);
+ const platform=new THREE.Mesh(new THREE.CylinderGeometry(3.7,3.7,.025,100),new THREE.MeshStandardMaterial({color:'#403947',metalness:.35,roughness:.4}));platform.position.y=-.025;platform.receiveShadow=true;scene.add(platform);
+ const ring=new THREE.Mesh(new THREE.TorusGeometry(3.75,.012,4,120),new THREE.MeshBasicMaterial({color:'#a27b99'}));ring.rotation.x=-Math.PI/2;ring.position.y=-.005;scene.add(ring);
+ // Architectural light fins frame the real vehicle rather than covering it with artwork.
+ const wallMat=new THREE.MeshStandardMaterial({color:'#342d3d',roughness:.85});
+ const wall=new THREE.Mesh(new THREE.BoxGeometry(36,8,.3),wallMat);wall.position.set(0,3.9,9);scene.add(wall);
+ for(let i=-4;i<=4;i++){
+  const fin=new THREE.Mesh(new THREE.BoxGeometry(.045,6,.05),new THREE.MeshBasicMaterial({color:i%2?'#a18ba4':'#61445d'}));fin.position.set(i*3.1,2.8,8.75);fin.rotation.z=-.25;scene.add(fin);
+ }
+ const stripe=new THREE.Mesh(new THREE.BoxGeometry(34,.04,.05),new THREE.MeshBasicMaterial({color:'#cf6c9d'}));stripe.position.set(0,.7,8.7);scene.add(stripe);
  return scene;
 }
 
