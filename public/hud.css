@@ -1,0 +1,159 @@
+/* Myracing — open-road driving HUD. Loaded after style.css and owns the drive screen. */
+.drive-ui { --hud-shadow: 0 2px 10px #000b, 0 0 2px #0009; background: linear-gradient(#0a0d1a66, transparent 16%, transparent 70%, #0a0d1a80); font-variant-numeric: tabular-nums; }
+.speed-vignette { position: absolute; inset: 0; pointer-events: none; opacity: var(--rush, 0); background: radial-gradient(ellipse at 50% 55%, transparent 46%, #05081299 100%); transition: opacity .25s; }
+
+/* Top bar: quiet until needed. */
+.drive-top { top: 16px; left: 22px; right: 22px; gap: 14px; }
+.hud-btn { display: inline-flex; align-items: center; gap: 7px; padding: 8px 12px; font-size: 11px; color: #f2f1f6; background: #12141ecc; border: 1px solid #ffffff1f; border-radius: 3px; backdrop-filter: blur(10px); }
+.hud-btn:hover { background: #fff; color: var(--ink); border-color: #fff; }
+.hud-btn kbd { min-width: 18px; height: 17px; font-size: 8px; }
+.hud-btn:hover kbd { color: var(--ink); border-color: #0004; }
+.hud-btn[aria-pressed=true] { border-color: var(--accent); box-shadow: inset 0 -2px 0 var(--accent); }
+.route-label { font-size: 11px; letter-spacing: .5px; text-shadow: var(--hud-shadow); }
+.drive-actions { gap: 6px; }.drive-actions span { margin-left: 0; }
+.drive-tools { top: 44px; width: 190px; padding: 6px; gap: 2px; background: #14161ff2; border-radius: 4px; }
+.drive-tools .hud-btn { background: none; border-color: transparent; justify-content: flex-start; padding: 10px 12px; }
+.drive-tools .hud-btn:hover { background: #ffffff1c; color: #fff; }
+
+/* Car and location title, shown briefly when a session starts. */
+.drive-intro { position: absolute; left: 50%; top: 21%; transform: translateX(-50%) skewX(-8deg); display: flex; flex-direction: column; align-items: center; gap: 6px; text-align: center; text-shadow: var(--hud-shadow); opacity: 0; pointer-events: none; }
+.drive-intro.show { animation: intro 4.2s ease-out both; }
+.drive-intro span { font-size: 11px; letter-spacing: 6px; color: #ffd7ea; }
+.drive-intro strong { font-size: clamp(34px, 5vw, 64px); font-weight: 900; font-style: italic; letter-spacing: -1.5px; line-height: 1; }
+.drive-intro small { font-size: 12px; letter-spacing: 2px; color: #e9e6ef; padding: 5px 12px; background: var(--pink); }
+@keyframes intro { 0% { opacity: 0; transform: translateX(-56%) skewX(-8deg); } 10%, 78% { opacity: 1; transform: translateX(-50%) skewX(-8deg); } 100% { opacity: 0; transform: translateX(-46%) skewX(-8deg); } }
+
+/* Skill chain. */
+.skill-hud { position: absolute; top: 74px; left: 50%; transform: translateX(-50%); width: 300px; text-align: center; text-shadow: var(--hud-shadow); pointer-events: none; }
+.skill-line { display: flex; justify-content: center; align-items: baseline; gap: 10px; }
+.skill-line b { font-size: 44px; font-weight: 900; font-style: italic; letter-spacing: -1.5px; line-height: 1; }
+.skill-line span { font-size: 20px; font-weight: 900; font-style: italic; color: #14161f; background: #ffd23f; padding: 2px 8px; transform: skewX(-10deg); text-shadow: none; }
+.skill-name { margin-top: 5px; font-size: 14px; font-weight: 800; letter-spacing: 3px; color: #ffe9f3; }
+.skill-timer { height: 4px; margin: 8px auto 0; width: 220px; background: #ffffff2e; transform: skewX(-20deg); overflow: hidden; }
+.skill-timer i { display: block; height: 100%; width: 100%; background: linear-gradient(90deg, var(--accent), #ffd23f); transform-origin: left; transform: scaleX(var(--left, 1)); }
+.skill-hud ul { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-direction: column; gap: 3px; font-size: 10px; color: #e3deea; }
+.skill-hud li { display: flex; justify-content: center; gap: 8px; opacity: .85; }.skill-hud li b { color: #fff; }
+.skill-hud li:nth-child(n+3) { opacity: .5; }
+.skill-hud.pop .skill-line b { animation: pop .22s ease-out; }
+.skill-hud.banked .skill-line b { color: #7dffb0; }.skill-hud.lost .skill-line b { color: #ff7a85; text-decoration: line-through; }
+@keyframes pop { 0% { transform: scale(1.25); } 100% { transform: scale(1); } }
+
+/* Centre banner: stunt results, lap results, level ups. */
+.banner { position: absolute; top: 27%; left: 50%; transform: translateX(-50%); min-width: 320px; max-width: min(560px, 92vw); padding: 16px 30px 18px; text-align: center; background: linear-gradient(90deg, transparent, #10121cf0 14%, #10121cf0 86%, transparent); border-top: 3px solid var(--tone, var(--accent)); pointer-events: none; animation: banner-in .28s ease-out; }
+.banner small { display: block; font-size: 10px; letter-spacing: 4px; font-weight: 700; color: var(--tone, #ff8cc0); }
+.banner strong { display: block; margin: 7px 0 4px; font-size: 38px; font-weight: 900; font-style: italic; letter-spacing: -1px; line-height: 1.05; }
+.banner span { font-size: 12px; color: #dcd7e4; }
+@keyframes banner-in { from { opacity: 0; transform: translateX(-50%) scale(1.08); } to { opacity: 1; transform: translateX(-50%) scale(1); } }
+.stars { display: flex; justify-content: center; gap: 6px; margin-top: 8px; font-size: 22px; line-height: 1; color: #ffffff38; }
+.stars:empty { display: none; }.stars .on { color: #ffd23f; text-shadow: 0 0 12px #ffd23f99; }
+
+/* Stunt approach / live card. */
+.stunt-card { position: absolute; top: 74px; right: 22px; width: 230px; padding: 12px 14px; background: #12141ed9; border-left: 4px solid var(--tone, var(--accent)); backdrop-filter: blur(8px); border-radius: 0 4px 4px 0; }
+.stunt-card small { display: block; font-size: 8px; letter-spacing: 2.5px; font-weight: 700; color: var(--tone, #ff8cc0); }
+.stunt-card strong { display: block; margin: 5px 0 2px; font-size: 15px; font-weight: 800; }
+.stunt-live { display: flex; align-items: baseline; gap: 6px; }.stunt-live b { font-size: 30px; font-weight: 900; font-style: italic; letter-spacing: -1px; }.stunt-live span { font-size: 10px; color: #c9c3d3; }
+.stunt-card .stars { justify-content: flex-start; font-size: 15px; margin-top: 4px; gap: 3px; }
+.stunt-card>span { display: block; margin-top: 6px; font-size: 9px; color: #c9c3d3; line-height: 1.6; }
+
+/* Timing tower sits under the top bar on circuits. */
+.lap-hud { top: 68px; left: 22px; width: 258px; border-radius: 4px; overflow: hidden; background: #12141ee0; }
+.damage-hud { top: auto; bottom: 250px; right: 22px; border-radius: 0 4px 4px 0; }
+
+/* Rewind. */
+.rewind-overlay { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; background: repeating-linear-gradient(0deg, #ffffff07 0 2px, transparent 2px 5px), #1b0f2a55; pointer-events: none; text-shadow: var(--hud-shadow); }
+.rewind-overlay span { font-size: 40px; font-weight: 900; font-style: italic; letter-spacing: 2px; }
+.rewind-overlay i { width: 260px; height: 5px; background: #ffffff33; }.rewind-overlay b { display: block; height: 100%; background: #fff; width: var(--left, 100%); }
+.rewind-overlay small { font-size: 11px; color: #e6e1ee; }
+
+/* Key hints fade away once the player is rolling. */
+.key-hints { position: absolute; left: 50%; bottom: 30px; transform: translateX(-50%); display: flex; gap: 16px; padding: 9px 16px; font-size: 10px; white-space: nowrap; background: #12141eb8; border-radius: 4px; backdrop-filter: blur(8px); transition: opacity .8s; }
+.key-hints span { display: inline-flex; align-items: center; gap: 4px; }
+.key-hints.faded { opacity: 0; }
+
+/* Bottom corners. */
+.drive-bottom { bottom: 22px; left: 22px; right: 22px; justify-content: space-between; }
+.minimap-card { width: 196px; padding: 0; background: none; border: 0; backdrop-filter: none; }
+.minimap-ring { position: relative; width: 196px; height: 196px; border-radius: 50%; overflow: hidden; background: #10131dcc; border: 2px solid #ffffff38; box-shadow: 0 8px 30px #0006, inset 0 0 0 4px #0003; }
+.minimap-card canvas { width: 100%; height: 100%; margin: 0; }
+.map-north { position: absolute; left: 50%; top: 50%; width: 16px; height: 16px; margin: -8px; display: grid; place-items: center; font-size: 9px; font-weight: 800; color: #14161f; background: #fff; border-radius: 50%; transform: rotate(var(--bearing, 0rad)) translateY(-86px) rotate(calc(var(--bearing, 0rad) * -1)); }
+.map-foot { display: flex; justify-content: space-between; align-items: baseline; margin-top: 9px; font-size: 10px; letter-spacing: 0; color: #e4e0ea; text-shadow: var(--hud-shadow); }
+.map-foot b { font-size: 12px; font-weight: 700; color: #fff; }
+.career-chip { display: flex; align-items: center; gap: 8px; margin-top: 7px; font-size: 10px; text-shadow: var(--hud-shadow); }
+.level-badge { min-width: 24px; height: 20px; padding: 0 6px; display: grid; place-items: center; font-weight: 900; font-style: italic; color: #fff; background: var(--pink); transform: skewX(-10deg); text-shadow: none; }
+.career-chip i { flex: 1; height: 4px; background: #ffffff2e; }.career-chip i b { display: block; height: 100%; width: var(--xp, 0%); background: #fff; transition: width .5s; }
+.career-chip>span:last-child { color: #ffd23f; font-weight: 700; }
+
+.cluster { position: relative; width: 236px; height: 236px; flex-shrink: 0; text-shadow: var(--hud-shadow); }
+.tach { position: absolute; inset: 0; width: 100%; height: 100%; transform: rotate(135deg); filter: drop-shadow(0 2px 8px #0009); }
+.tach circle { fill: none; stroke-width: 9; }
+.tach-track { stroke: #ffffff2b; stroke-dasharray: 75 100; }
+.tach-red { stroke: #ff3b4e; stroke-dasharray: 0 100; opacity: .75; }
+.tach-fill { stroke: #fff; stroke-dasharray: 0 100; }
+.cluster.redline .tach-fill { stroke: #ff3b4e; }
+.cluster::before { content: ''; position: absolute; inset: 22px; border-radius: 50%; background: radial-gradient(circle, #10131dd6 55%, #10131d66 100%); }
+.cluster-core { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+.cluster-core strong { font-size: 68px; font-weight: 900; font-style: italic; letter-spacing: -3px; line-height: .95; margin-right: 6px; }
+.cluster-core .unit { font-size: 10px; letter-spacing: 3px; color: #cfc9d9; margin-top: 2px; }
+#gear-number.gear { margin-left: 0; color: #14161f; }
+.gear { min-width: 34px; padding: 1px 8px; margin-bottom: 4px; font-size: 22px; font-weight: 900; font-style: italic; text-align: center; color: #14161f; background: #fff; transform: skewX(-10deg); text-shadow: none; }
+.cluster.redline #gear-number.gear { background: #ff3b4e; color: #fff; animation: blink .16s steps(2) infinite; }
+@keyframes blink { 50% { opacity: .45; } }
+.cluster-foot { position: absolute; left: 0; right: 0; bottom: 34px; display: flex; justify-content: center; gap: 12px; font-size: 9px; color: #cfc9d9; }
+.cluster-foot b { color: #fff; font-weight: 600; }
+#brake-state.braking { color: #ffb199; }
+.pedals { position: absolute; right: -14px; bottom: 34px; display: flex; gap: 4px; height: 96px; }
+.pedals i { position: relative; width: 6px; height: 100%; background: #ffffff26; }
+.pedals b { position: absolute; left: 0; right: 0; bottom: 0; height: var(--v, 0%); background: #7dffb0; }
+.pedal-brake b { background: #ff5d6c; }
+.assist-lights { position: absolute; left: 0; right: 0; top: 46px; display: flex; justify-content: center; gap: 5px; z-index: 1; }
+.assist-lights span { padding: 2px 5px; font-size: 8px; font-weight: 800; letter-spacing: .5px; color: #ffffff4d; border: 1px solid #ffffff2b; border-radius: 2px; text-shadow: none; }
+.assist-lights .on { color: #14161f; background: #ffd23f; border-color: #ffd23f; }
+#light-hb.on { background: #ff5d6c; border-color: #ff5d6c; color: #fff; }
+.handling-state { position: absolute; left: 0; right: 0; bottom: 2px; margin: 0; text-align: center; font-size: 10px; color: #e4e0ea; }
+
+.compact-hud .key-hints, .compact-hud .career-chip, .compact-hud .map-foot, .compact-hud .handling-state, .compact-hud .assist-lights, .compact-hud .cluster-foot, .compact-hud .route-label, .compact-hud .stunt-card>span, .compact-hud #skill-recent { display: none; }
+.compact-hud .lap-hud { top: 68px; }
+.compact-hud .minimap-card, .compact-hud .minimap-ring { width: 150px; }.compact-hud .minimap-ring { height: 150px; }.compact-hud .map-north { transform: rotate(var(--bearing, 0rad)) translateY(-63px) rotate(calc(var(--bearing, 0rad) * -1)); }
+.compact-hud .cluster { width: 190px; height: 190px; }.compact-hud .cluster-core strong { font-size: 54px; }
+
+.driving #toast { bottom: 96px; background: #12141ef0; color: #fff; border-left-color: var(--accent); border-radius: 0 4px 4px 0; }
+
+/* Menu career strip. */
+.driver-avatar { font-size: 15px; background: var(--pink); border-color: transparent; transform: skewX(-8deg); }
+.xp-track { display: block; width: 120px; height: 3px; margin-top: 5px; background: #ffffff26; }.xp-track b { display: block; height: 100%; width: var(--xp, 0%); background: var(--accent); }
+.driver-profile small { letter-spacing: .3px; }#menu-stars { color: #ffd23f; }
+
+/* Touch layout. */
+.touch-extra { align-items: flex-end; }
+.touch-controls .touch-extra button { width: 52px; height: 40px; font-size: 11px; }
+.touch-controls .touch-handbrake { font-size: 12px; }
+
+@media (max-height: 800px) and (min-width: 761px) {
+  .lap-hud { top: 64px; width: 240px; }
+  .cluster { width: 204px; height: 204px; }.cluster-core strong { font-size: 58px; }.pedals { height: 80px; }
+  .minimap-card, .minimap-ring { width: 170px; }.minimap-ring { height: 170px; }.map-north { transform: rotate(var(--bearing, 0rad)) translateY(-73px) rotate(calc(var(--bearing, 0rad) * -1)); }
+  .skill-line b { font-size: 36px; }
+}
+@media (max-width: 1100px) { .key-hints { display: none; }.route-label { display: none; } }
+@media (max-width: 760px) {
+  .drive-top { top: 10px; left: 10px; right: 10px; gap: 5px; }.hud-btn { padding: 7px 8px; font-size: 9px; }.hud-btn kbd { display: none; }
+  .lap-hud { top: 52px; left: 10px; width: 200px; }.stunt-card { top: 52px; right: 10px; width: 170px; padding: 9px 10px; }.stunt-live b { font-size: 22px; }
+  .skill-hud { top: 52px; width: 200px; }.skill-line b { font-size: 28px; }.skill-line span { font-size: 14px; }.skill-name { font-size: 11px; letter-spacing: 1px; }.skill-hud ul { display: none; }.skill-timer { width: 150px; }
+  .banner { top: 24%; min-width: 0; width: 90vw; padding: 12px 16px; }.banner strong { font-size: 26px; }
+  .drive-bottom { bottom: 104px; left: 10px; right: 10px; }
+  .minimap-card, .minimap-ring { width: 118px; }.minimap-ring { height: 118px; }.map-north { transform: rotate(var(--bearing, 0rad)) translateY(-49px) rotate(calc(var(--bearing, 0rad) * -1)); }.career-chip, .map-foot span { display: none; }.map-foot b { font-size: 10px; }
+  .cluster { width: 150px; height: 150px; }.cluster::before { inset: 14px; }.tach circle { stroke-width: 8; }.cluster-core strong { font-size: 40px; letter-spacing: -2px; }.cluster-core .unit { font-size: 8px; }.gear { font-size: 15px; min-width: 24px; }.cluster-foot, .handling-state, .pedals { display: none; }.assist-lights { top: 26px; gap: 2px; }.assist-lights span { font-size: 6px; padding: 1px 3px; }
+  .damage-hud { bottom: 270px; right: 10px; top: auto; left: auto; }
+  .driving #toast { bottom: 270px; }
+  .touch-controls { align-items: flex-end; gap: 6px; }.touch-controls>div { gap: 5px; }.touch-controls button { width: 54px; }.touch-controls .touch-handbrake { width: 44px; }.touch-controls .touch-extra button { width: 40px; font-size: 10px; }
+  .stunt-card strong { font-size: 12px; }.stunt-card>span { display: none; }
+}
+@media (max-height: 540px) and (min-width: 600px) {
+  .drive-top { top: 8px; }.lap-hud, .compact-hud .lap-hud { top: 48px; left: 10px; width: 216px; }.skill-hud { top: 44px; }.skill-line b { font-size: 28px; }.skill-hud ul { display: none; }.stunt-card { top: 48px; }
+  .drive-bottom { bottom: 10px; }.cluster { width: 150px; height: 150px; }.cluster::before { inset: 14px; }.cluster-core strong { font-size: 40px; }.cluster-foot, .handling-state, .pedals, .career-chip, .map-foot { display: none; }.assist-lights { top: 26px; }.assist-lights span { font-size: 6px; padding: 1px 3px; }.gear { font-size: 15px; }
+  .minimap-card, .minimap-ring { width: 120px; }.minimap-ring { height: 120px; }.map-north { transform: rotate(var(--bearing, 0rad)) translateY(-50px) rotate(calc(var(--bearing, 0rad) * -1)); }
+  .banner { top: 18%; }.banner strong { font-size: 26px; }.driving #toast { bottom: 20px; }
+}
+@media (pointer: coarse) and (min-width: 761px) { .drive-bottom { bottom: 92px; }.key-hints { display: none; } }
+@media (pointer: coarse) and (max-height: 540px) { .drive-bottom { bottom: 72px; }.minimap-card { display: block; } }
+@media (prefers-reduced-motion: reduce) { .drive-intro.show { animation: none; opacity: 0; }.speed-vignette { display: none; } }
