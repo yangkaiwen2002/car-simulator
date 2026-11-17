@@ -1,7 +1,7 @@
 // Rewind: a rolling buffer of vehicle snapshots that can be scrubbed backwards.
 const lerp=(a,b,t)=>a+(b-a)*t;
 function lerpAngle(a,b,t){let d=(b-a)%(Math.PI*2);if(d>Math.PI)d-=Math.PI*2;if(d<-Math.PI)d+=Math.PI*2;return a+d*t;}
-export function snapshot(state){const copy={...state,damage:{...state.damage},impact:null,collision:false};return copy;}
+export function snapshot(state){const copy={...state,damage:{...state.damage},impact:null,collision:false};if(state.sim)copy.sim=Object.fromEntries(Object.entries(state.sim).map(([key,value])=>[key,Array.isArray(value)?[...value]:value]));return copy;}
 export function createRewind(seconds=14,interval=.1){
  const frames=[],limit=Math.ceil(seconds/interval);let clock=0,cursor=0;
  return {
