@@ -18,6 +18,7 @@ import {addStuntGates,STUNT_COLORS} from './driving/stunt-gates.js?v=0.12.0';
 import {createDrivingLine} from './driving/driving-line.js?v=0.12.0';
 import {createEffects} from './driving/effects.js?v=0.12.0';
 import {createSfx} from './driving/sfx.js?v=0.12.0';
+import {stepSim,TIRE} from './driving/sim-physics.js?v=0.13.0';
 
 const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
 let menuPrefs={};
@@ -166,7 +167,11 @@ function playImpact(speed){
  const duration=.12+Math.min(speed/80,.15),buffer=audioContext.createBuffer(1,Math.ceil(audioContext.sampleRate*duration),audioContext.sampleRate),channel=buffer.getChannelData(0);for(let i=0;i<channel.length;i++)channel[i]=(Math.random()*2-1)*Math.exp(-i/channel.length*5);
  const source=audioContext.createBufferSource();source.buffer=buffer;const filter=audioContext.createBiquadFilter();filter.type='lowpass';filter.frequency.value=250+Math.min(speed*25,650);const gain=audioContext.createGain();gain.gain.value=volume*Math.min(speed/6,1.5);source.connect(filter).connect(gain).connect(audioContext.destination);source.start();source.onended=()=>{source.disconnect();filter.disconnect();gain.disconnect();};
 }
-function bestKey(){return `openroad-best-v10-${destination}-${selected.id}-${assists?'assisted':'unassisted'}`;}
+// The four-wheel simulation keeps its own records; its lap times are not comparable.
+function bestKey(){return `openroad-best-v10-${destination}-${selected.id}-${handling==='sim'?'sim':'assisted'}`;}
+// Simulation mode keeps only the driver aids each car plausibly has.
+const SIM_AIDS={none:['MCL39','W33','RB19','G4','MI','CS','TL2'],absOnly:['TC6','3S','MC']};
+function simAids(){const id=selected.id;return SIM_AIDS.none.includes(id)?{abs:false,tc:false}:{abs:true,tc:!SIM_AIDS.absOnly.includes(id)};}
 function resetSession(){
  state=createState();state.rpm=specs.idle;
  rewind.clear();skills.reset();stunts.reset();chase.reset();city.effects?.clear();city.props?.reset();rewinding=false;reverseHold=0;lastSectors=0;sectorExcursions=0;skillFlash=null;$('#rewind-overlay').hidden=true;
@@ -206,7 +211,7 @@ function input(dt=0){
  const throttle=stop||handbrake?0:cruise?clamp((35/3.6-state.speed)*.65+.1,0,1):go;
  const keySteer=(keys.has('KeyA')||keys.has('ArrowLeft')||touch.has('left')?1:0)-(keys.has('KeyD')||keys.has('ArrowRight')||touch.has('right')?1:0);
  const analog=!keySteer&&!!pad&&Math.abs(pad.steer)>0;
- return {digital:!analog,precision:gentle,assists,sport:handling==='sport',manual,throttle,brake:cruise?Math.max(stop,clamp((state.speed-35/3.6)*.3,0,.4)):stop,handbrake,steer:analog?pad.steer:keySteer};
+ return {digital:!analog,precision:gentle,assists,sport:handling==='sport',...(handling==='sim'?simAids():{}),manual,throttle,brake:cruise?Math.max(stop,clamp((state.speed-35/3.6)*.3,0,.4)):stop,handbrake,steer:analog?pad.steer:keySteer};
 }
 $('#damage-view').onclick=()=>{inspectDamage=!inspectDamage;$('#damage-view').textContent=inspectDamage?'返回座舱':'查看车身';};
 function launchDrive(){if(loading||starting)return;if(!vehicle){selectCar(selected);return;}destination==='city'?startDriving():showChallenges();}
@@ -227,7 +232,7 @@ $('#sound-toggle').onclick=()=>{sound=!sound;updateSoundLabel();saveSettings();i
 const openDialog=id=>{if(mode==='drive')setPaused(true,'关闭窗口后，点击继续驾驶');$(id).showModal();};
 $('#guide-open').onclick=()=>openDialog('#guide-dialog');$('#sources-open').onclick=()=>openDialog('#about-dialog');$('#settings-open').onclick=$('#drive-settings').onclick=$('#pause-settings').onclick=()=>openDialog('#settings-dialog');
 $$('.close-dialog').forEach(b=>b.onclick=()=>b.closest('dialog').close());$$('dialog').forEach(d=>d.addEventListener('click',e=>{if(e.target===d){const r=d.getBoundingClientRect();if(e.clientX<r.left||e.clientX>r.right||e.clientY<r.top||e.clientY>r.bottom)d.close();}}));
-$('#assists').onchange=e=>{handling=e.target.value;assists=handling!=='sim';saveSettings();if(mode==='drive'){resetSession();cruise=false;resetInputs();updateCruise();notify('操控风格已切换，本次行程重新开始');}};
+$('#assists').onchange=e=>{handling=e.target.value;assists=handling!=='sim';saveSettings();if(mode==='drive'){resetSession();cruise=false;resetInputs();updateCruise();notify(handling==='sim'?'拟真模式：没有稳定辅助，冷胎抓地不足，刹车和油门都要循序渐进':'操控风格已切换，本次行程重新开始');}};
 $('#transmission').onchange=e=>{manual=e.target.value==='manual';$('#shift-hint').hidden=!manual;saveSettings();};
 $('#line-mode').onchange=e=>{lineMode=e.target.value;saveSettings();};
 $('#camera-mode').onchange=e=>{cameraMode=e.target.value;applyCamera();saveSettings();};
@@ -331,8 +336,8 @@ function updateFastHUD(){
 }
 function updateHUD(i){
  {const sport=handling==='sport',on=(id,value)=>$(id).classList.toggle('on',!!value);
- $('#handling-state').textContent=state.damage.disabled?'车辆损坏 · 按住 R 倒带或在选项中重置':sport&&state.drift>.6&&Math.abs(state.speed)>8?'漂移中 · 按住方向和油门保持':state.stabilityActive?'稳定辅助介入':state.tractionCut>.08?'牵引控制介入':state.wheelspin>.12?'驱动轮打滑':Math.abs(state.frontSlip)>.12?'前轮接近抓地极限':handling==='casual'?'休闲模式 · 全辅助':sport?'运动模式 · 手刹可漂移':'模拟模式 · 无辅助';
- on('#light-abs',assists&&state.brakePressure>.5&&Math.abs(state.speed)>4&&state.frontGrip>.96);on('#light-tcs',assists&&state.tractionCut>.08);on('#light-stm',state.stabilityActive);on('#light-hb',i.handbrake||state.brakeHold);}
+ $('#handling-state').textContent=state.damage.disabled?'车辆损坏 · 按住 R 倒带或在选项中重置':handling==='sim'?(state.lockup?'车轮抱死 · 松一点刹车':state.absActive?'ABS 介入':state.tractionCut>.08?'牵引控制介入':state.wheelspin>.25?'驱动轮空转 · 收一点油门':Math.max(...state.sim?.temp||[0])>135?'轮胎过热 · 抓地下降':Math.max(...state.sim?.temp||[99])<50?'冷胎 · 抓地不足':'拟真模式 · 四轮轮胎模型'):sport&&state.drift>.6&&Math.abs(state.speed)>8?'漂移中 · 按住方向和油门保持':state.stabilityActive?'稳定辅助介入':state.tractionCut>.08?'牵引控制介入':state.wheelspin>.12?'驱动轮打滑':Math.abs(state.frontSlip)>.12?'前轮接近抓地极限':handling==='casual'?'休闲模式 · 全辅助':sport?'运动模式 · 手刹可漂移':'模拟模式 · 无辅助';
+ on('#light-abs',handling==='sim'?state.absActive:state.brakePressure>.5&&Math.abs(state.speed)>4&&state.frontGrip>.96);on('#light-tcs',state.tractionCut>.08);{const tires=$('#tire-hud');tires.hidden=handling!=='sim'||!state.sim;if(!tires.hidden)[...tires.children].forEach((cell,index)=>{const temp=state.sim.temp[index],optimum=(specs.tireGrip>1.4?TIRE.slick:TIRE.road).optimum;cell.textContent=Math.round(temp);cell.style.background=`hsl(${Math.round(clamp(130-(temp-optimum)*(temp<optimum?-2.2:2.6),0,215))} 70% ${Math.abs(state.sim.omega[index])<.5&&Math.abs(state.speed)>3?75:42}%)`;});}on('#light-stm',state.stabilityActive);on('#light-hb',i.handbrake||state.brakeHold);}
  const damage=state.damage;$('#damage-hud').hidden=damage.revision===0;$('#damage-status').textContent=damage.disabled?'车辆无法继续行驶 · 请修复重置':'车辆受损';$('#damage-detail').textContent=`动力 ${Math.round((damage.disabled?0:Math.max(.15,1-damage.engine*.7-damage.structure*.15))*100)}% · 制动 ${Math.round((1-damage.brakes*.55)*100)}% · 转向 ${Math.round((1-damage.steering*.48)*100)}%`;
 
  $('#drive-ui').style.setProperty('--impact',String(state.impactPulse||0));$('#speed').textContent=String(Math.round(Math.abs(state.speed)*3.6));$('#rpm').textContent=Math.round(state.rpm/10)*10;$('#gear-number').textContent=state.direction===0?'N':state.direction<0?'R':String(state.gear);$('#brake-state').textContent=state.brakeHold?'制动保持':i.handbrake?'手刹':state.direction<0?'倒车':manual?'手动挡':'自动挡';$('#brake-state').classList.toggle('braking',state.brakeHold||i.handbrake||state.brakePressure>.04);$('#distance').textContent=(state.distance/1000).toFixed(2)+' km';$('#road-name').textContent=city.info?`${city.info.name} · ${(city.info.length/1000).toFixed(3)} km`:Math.abs(state.x)<12?'滨海大道':state.x>200?'港湾环路':'中央街区';updateStuntCard();
@@ -369,7 +374,7 @@ function animate(timestamp){
     accumulator+=dt;
     while(accumulator>=1/120){
      controls.offRoad=!!lapTimer?.offRoad;if(city.route){const ground=city.route.nearest(state.x,state.z);controls.grade=ground.grade*(-Math.sin(state.yaw)*ground.tx-Math.cos(state.yaw)*ground.tz);state.groundHeight=ground.y;state.roadPitch=Math.atan(controls.grade);}
-     step(state,controls,specs,1/120,city.world);if(lapTimer)lapTimer.update(state.x,state.z,1/120);
+     (handling==='sim'?stepSim:step)(state,controls,specs,1/120,city.world);if(lapTimer)lapTimer.update(state.x,state.z,1/120);
      const smashed=city.props?.collide(state,specs)||0;if(smashed){skills.smash(45*smashed);playImpact(2.2);gamepad.rumble(.25,.5,90);}
      rewind.record(state,1/120);accumulator-=1/120;
      if(state.collision){hit=Math.max(hit,state.impact.speed);if(timestamp-lastCollision>180){lastCollision=timestamp;playImpact(state.impact.speed);cruise=false;updateCruise();gamepad.rumble(Math.min(1,state.impact.speed/12),.4,160);if(state.impact.speed>4)notify(`撞击${state.impact.kind} · 按住 R 倒带`);}}
@@ -381,7 +386,7 @@ function animate(timestamp){
     if(pad&&Math.abs(state.rearSlip)>.25&&Math.abs(state.speed)>8)gamepad.rumble(0,.18,60);
     if(Math.abs(state.speed)>5){hintTimer+=dt;if(hintTimer>7)$('#key-hints').classList.add('faded');}
    }
-   vehicle.root.position.set(state.x,state.groundHeight||0,state.z);vehicle.root.rotation.set(state.roadPitch||0,state.yaw,0,'YXZ');vehicle.update(state,dt);city.follow(state.x,state.z);
+   vehicle.root.position.set(state.x,state.groundHeight||0,state.z);{const stiff=specs.downforce>1?.35:1;vehicle.root.rotation.set((state.roadPitch||0)+clamp((state.visualAcceleration||0)*.0022*stiff,-.03,.03),state.yaw,clamp(-(state.visualLateral||0)*.0042*stiff,-.055,.055),'YXZ');}vehicle.update(state,dt);city.follow(state.x,state.z);
    city.props?.update(dt);
   }
   const offRoad=!!lapTimer?.offRoad;
@@ -419,7 +424,7 @@ function showChallenges(){
  try{targetChoices[destination]||=localStorage.getItem('openroad-target-v1-'+destination);}catch{}
  const active=currentTarget(),best=savedBest(),earned=earnedTargets(destination,best);
  $('#challenge-title').textContent=info.name+' · 挑战目标';
- $('#challenge-context').textContent=`${selected.name} · ${assists?'辅助开启':'自由操控'} · 个人最佳 ${formatLap(best)}。仅有效整圈可达成；成绩按车型、赛道与辅助模式独立保存。`+(destination==='nordschleife'?' 北环标杆为非 F1 原型赛车纪录，贝洛夫采用历史布局，均仅供参考。':destination==='redbullring'?' 16 米宽版、平面路线，适合先熟悉刹车点。':'');
+ $('#challenge-context').textContent=`${selected.name} · ${handling==='sim'?'拟真模式':'辅助开启'} · 个人最佳 ${formatLap(best)}。仅有效整圈可达成；成绩按车型、赛道与辅助模式独立保存。`+(destination==='nordschleife'?' 北环标杆为非 F1 原型赛车纪录，贝洛夫采用历史布局，均仅供参考。':destination==='redbullring'?' 16 米宽版、平面路线，适合先熟悉刹车点。':'');
  const container=$('#challenge-options');container.replaceChildren();
  for(const target of targetsFor(destination)){
   const row=document.createElement('div');row.className='challenge-option'+(target.kind==='driver'?' driver-target':'');
